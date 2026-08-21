@@ -112,6 +112,9 @@ async function handleChatCompletion(req, res, body) {
       const dailyLimit = provider.dailyLimit || 1000;
       const usedToday = getStats().providerUsage[key] || 0;
       if (usedToday >= dailyLimit * 0.9) weight *= 0.5;
+      // Providers with a history of failures lose weight (stability first)
+      const errorCount = getStats().errors[key] || 0;
+      if (errorCount > 5) weight *= 0.4;
       return { key, provider, weight };
     }).sort((a, b) => b.weight - a.weight);
 
