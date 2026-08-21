@@ -105,6 +105,25 @@ if (cmd === 'init') {
   child.on('close', (c) => process.exit(c || 0));
 } else if (cmd === 'dashboard') {
   console.log('Открой http://localhost:4000/ (запусти start сначала)');
+} else if (cmd === 'test') {
+  const http = require('http');
+  const base = `http://127.0.0.1:${process.env.PORT || 4000}`;
+  http.get(base + '/health', (res) => {
+    let data = '';
+    res.on('data', (c) => data += c);
+    res.on('end', () => {
+      if (res.statusCode === 200) {
+        console.log('✅ Прокси работает: ' + data);
+      } else {
+        console.log('❌ Прокси ответил ' + res.statusCode + ': ' + data);
+        process.exit(1);
+      }
+    });
+  }).on('error', (err) => {
+    console.log('❌ Прокси не запущен на ' + base);
+    console.log('   Запусти: npx davil-cod start');
+    process.exit(1);
+  });
 } else if (cmd === 'version' || cmd === '-v' || cmd === '--version') {
   const pkg = require(path.join(ROOT, 'package.json'));
   console.log(pkg.version);
@@ -113,5 +132,6 @@ if (cmd === 'init') {
   console.log('Команды:');
   console.log('  npx davil-cod init       интерактивная настройка (ключи, пароль)');
   console.log('  npx davil-cod start      запустить прокси');
+  console.log('  npx davil-cod test       проверить, что прокси работает');
   console.log('  npx davil-cod dashboard  открыть дашборд');
 }

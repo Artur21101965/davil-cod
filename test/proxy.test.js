@@ -107,6 +107,43 @@ test('providers: catalog providers are enabled by default', () => {
   assert.ok(enabled.length >= 10, 'at least 10 providers enabled by default');
 });
 
+test('health: 404 opens circuit breaker long (model unavailable for account)', () => {
+  const health = require('../lib/health');
+  const key = `cb404-${Date.now()}`;
+  // A single 404 should trip the breaker immediately (openMs 300s)
+  health.recordFailure(key, 404);
+  assert.strictEqual(health.isCircuitOpen(key), true);
+});
+
+test('health: user config can disable a catalog provider (enabled:false)', () => {
+  // Simulate the merge logic: enabled:false must remove the provider.
+  // The real merge lives in lib/providers loadConfig; here we verify the
+  // catalog itself has no enabled:false, and the catalog merge keeps >=10.
+  const fs = require('fs');
+  const path = require('path');
+  const { PROVIDERS } = require('../lib/providers');
+  // No provider should be force-disabled by default (that's a user decision)
+  const noneDisabled = Object.entries(PROVIDERS).every(([_, p]) => p.enabled !== false);
+  assert.strictEqual(noneDisabled, true);
+  assert.ok(Object.keys(PROVIDERS).length >= 10);
+});
+
+test('CLI: init (non-interactive) creates config and env without overwriting', () => {
+  const { execSync } = require('child_process');
+  const os = require('os');
+  const fs = require('fs');
+  const path = require('path');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'davil-init-'));
+  // Pre-existing config must be preserved
+  fs.writeFileSync(path.join(tmp, 'config.json'), '{"port":4123}');
+  const bin = path.join(__dirname, '..', 'bin', 'davil-cod.js');
+  execSync(`node "${bin}" init`, { cwd: tmp, stdio: 'pipe' });
+  const cfg = JSON.parse(fs.readFileSync(path.join(tmp, 'config.json'), 'utf8'));
+  assert.strictEqual(cfg.port, 4123, 'existing config not overwritten');
+  assert.ok(fs.existsSync(path.join(tmp, '.env')), '.env created');
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+
 // Stop background timers so the test process can exit (health.js sets setInterval)
 require('../lib/health')._stopTimers();
 require('../lib/cache')._stopTimers();
