@@ -461,7 +461,15 @@ const server = http.createServer(async (req, res) => {
     req.on('error', () => {});
     req.on('end', async () => {
       try {
-        await handleChatCompletion(req, res, JSON.parse(body));
+        const requestBody = JSON.parse(body);
+        // Validate minimal structure — reject junk before it burns provider limits
+        if (!requestBody || typeof requestBody !== 'object' ||
+            !Array.isArray(requestBody.messages) || requestBody.messages.length === 0) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'messages is required and must be a non-empty array', type: 'invalid_request_error', code: 'invalid_messages' } }));
+          return;
+        }
+        await handleChatCompletion(req, res, requestBody);
       } catch (err) {
         logger.error('Chat handler error', { message: err.message, stack: err.stack });
         res.writeHead(400, { 'Content-Type': 'application/json' });
