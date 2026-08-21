@@ -1,0 +1,13 @@
+# Секреты — никогда не коммитить
+.env
+
+# Служебные файлы
+state.json
+proxy.log
+proxy.log.*
+watchdog.log
+node_modules/
+
+# Временное
+*.bak
+/tmp/
