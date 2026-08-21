@@ -293,7 +293,19 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify({
       total_requests: s.totalRequests, successful_requests: s.successfulRequests, failed_requests: s.failedRequests,
       provider_usage: s.providerUsage, token_usage: s.tokenUsage, errors: s.errors, uptime_seconds: Math.floor((Date.now() - s.startTime) / 1000),
-      health: Object.fromEntries(Object.entries(getHealth()).map(([k, v]) => [k, { status: v.status, score: v.score, latency_ms: v.latency }])),
+      health: Object.fromEntries(Object.entries(getHealth()).map(([k, v]) => {
+        const limit = limits[k];
+        const err = s.errors[k] || 0;
+        let reason = '';
+        if (v.status !== 'up') reason = v.status === 'ratelimited' ? 'лимит провайдера (429)' : 'не отвечает';
+        else if (limit && limit.percent >= 100) reason = 'дневной лимит исчерпан';
+        else if (err > 10) reason = 'много ошибок (' + err + ')';
+        else reason = 'работает';
+        const rel = s.reliability?.[k];
+        let reliability = null;
+        if (rel && rel.success + rel.fail >= 3) reliability = Math.round((rel.success / (rel.success + rel.fail)) * 100);
+        return [k, { status: v.status, score: v.score, latency_ms: v.latency, reason, reliability }];
+      })),
       cache: cache.stats(),
       limits,
     }));
