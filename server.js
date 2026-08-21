@@ -394,7 +394,7 @@ const server = http.createServer(async (req, res) => {
   res.end(JSON.stringify({ error: 'Not found' }));
 });
 
-server.listen(PORT, '127.0.0.1', () => {
+server.listen(PORT, process.env.HOST || '127.0.0.1', () => {
   logger.info('DAVIL Cod started', { port: PORT });
   console.log('Dashboard: http://localhost:' + PORT + '/');
 });

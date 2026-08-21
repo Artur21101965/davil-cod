@@ -1,0 +1,8 @@
+.git
+node_modules
+*.log*
+state.json
+cache.json
+watchdog.sh
+test/
+deploy-oracle.sh
