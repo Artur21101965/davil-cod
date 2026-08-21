@@ -103,7 +103,10 @@ async function handleChatCompletion(req, res, body) {
     const scored = healthyProviders.map(([key, provider]) => {
       const h = getHealth()[key];
       let score = h.score || 50;
-      const lat = Math.max(h.latency || 100, 50);
+      // Latency is only reliable after real requests; unmeasured/zero latency
+      // must NOT balloon a provider's weight. Treat <100ms as neutral.
+      const rawLat = h.latency || 0;
+      const lat = rawLat > 0 ? Math.max(rawLat, 100) : 500;
       let weight = score / lat;
       if (key === targetProviderKey) weight *= 2;
       const dailyLimit = provider.dailyLimit || 1000;
