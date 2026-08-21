@@ -15,3 +15,16 @@ jobs:
           node-version: 20
       - run: node --version
       - run: node --test test/proxy.test.js
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t davil-cod:ci .
+      - name: Smoke test container
+        run: |
+          docker run -d --name davil-ci -p 4100:4000 davil-cod:ci
+          sleep 4
+          curl -sf http://localhost:4100/health || exit 1
+          docker rm -f davil-ci
