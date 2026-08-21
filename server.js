@@ -185,13 +185,46 @@ async function handleChatCompletion(req, res, body) {
         return;
       }
     } catch (err) {
+      const statusCode = err.statusCode || 502;
       errors.push(err.message);
       recordRequest(key, false, err.message);
-      recordRecent({ model: requestedModel, provider: key, status: 502, latency: 0, cached: false });
+      recordRecent({ model: requestedModel, provider: key, status: statusCode, latency: 0, cached: false });
       initHealth(key);
-      getHealth()[key].status = 'error';
-      getHealth()[key].score = Math.max(0, (getHealth()[key].score || 50) - 10);
-      recordFailure(key);
+      getHealth()[key].status = statusCode === 429 ? 'ratelimited' : 'error';
+      getHealth()[key].score = Math.max(0, (getHealth()[key].score || 50) - (statusCode === 429 ? 5 : 10));
+      recordFailure(key, statusCode);
+    }
+  }
+
+  // If every provider failed with transient errors (5xx/timeout), give them one
+  // more pass after a short pause — many overloads clear in 1-2 seconds.
+  const allSoft = errors.length > 0 && errors.every(e => !/429|401|403|404/.test(e));
+  if (allSoft && enabledProviders.length > 1) {
+    await new Promise(r => setTimeout(r, 1500));
+    for (const [key, provider] of enabledProviders) {
+      if (isCircuitOpen(key)) continue;
+      try {
+        const result = await callProvider(provider, { ...body, model: provider.model });
+        recordSuccess(key);
+        recordRequest(key, true);
+        recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
+        if (!body.stream && result.data) {
+          delete result.data.nvext;
+          cache.set(requestedModel, body.messages, body.temperature, result.data);
+          recordTokens(key, result.usage);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(result.data));
+          return;
+        }
+        if (body.stream && result.stream) {
+          res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
+          result.stream.pipe(res);
+          return;
+        }
+      } catch (err2) {
+        recordRequest(key, false, err2.message);
+        recordFailure(key, err2.statusCode);
+      }
     }
   }
 
