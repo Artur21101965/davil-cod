@@ -44,8 +44,8 @@ function getArg(name, defaultVal) {
   const idx = args.indexOf('--' + name);
   return idx >= 0 && args[idx + 1] ? args[idx + 1] : defaultVal;
 }
-const PORT = parseInt(getArg('port', config.port || '4000'));
-const AUTH_KEY = getArg('auth', config.auth || '');
+const PORT = parseInt(process.env.PORT || getArg('port', config.port || '4000'));
+const AUTH_KEY = process.env.AUTH || getArg('auth', config.auth || '');
 const RATE_LIMIT = config.rateLimit || { maxRequests: 100, windowMs: 60000 };
 
 // Health check
