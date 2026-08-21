@@ -7,6 +7,7 @@ const { PROVIDERS, MODEL_MAP, callProvider } = require('./lib/providers');
 const { loadState, initHealth, isCircuitOpen, recordSuccess, recordFailure, recordRequest, recordTokens, getHealth, getStats, recordRecent, recordRpm, getRecent, getRpm } = require('./lib/health');
 const { checkRateLimit } = require('./lib/rateLimit');
 const { handleDashboard } = require('./lib/dashboard');
+const { acquire } = require('./lib/pool');
 const logger = require('./lib/logger');
 
 // Load persisted state
@@ -148,7 +149,13 @@ async function handleChatCompletion(req, res, body) {
     const providerBody = { ...body, model: provider.model };
 
     try {
-      const result = await callProvider(provider, providerBody);
+      const release = await acquire(key);
+      let result;
+      try {
+        result = await callProvider(provider, providerBody);
+      } finally {
+        release();
+      }
       initHealth(key);
       getHealth()[key].latency = result.latency;
       getHealth()[key].lastCheck = Date.now();
@@ -211,7 +218,13 @@ async function handleChatCompletion(req, res, body) {
     for (const [key, provider] of enabledProviders) {
       if (isCircuitOpen(key)) continue;
       try {
-        const result = await callProvider(provider, { ...body, model: provider.model });
+        const release = await acquire(key);
+        let result;
+        try {
+          result = await callProvider(provider, { ...body, model: provider.model });
+        } finally {
+          release();
+        }
         recordSuccess(key);
         recordRequest(key, true);
         recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
