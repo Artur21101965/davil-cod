@@ -13,6 +13,16 @@ const logger = require('./lib/logger');
 // Load persisted state
 loadState();
 
+// Drop stale health entries for providers that no longer exist (e.g. auto-disabled)
+const activeKeys = new Set(Object.keys(PROVIDERS));
+const stale = Object.keys(getHealth()).filter(k => !activeKeys.has(k));
+if (stale.length > 0) {
+  for (const k of stale) {
+    delete getHealth()[k];
+  }
+  logger.info('Cleaned stale health entries', { removed: stale });
+}
+
 const cache = new LRUCache(500, 3600000);
 require('./lib/cache')._activeCache = cache;
 
@@ -80,8 +90,17 @@ async function checkProvider(key, provider) {
     getHealth()[key].latency = latency;
     getHealth()[key].score = Math.max(0, (getHealth()[key].score ?? 50) - 5);
     recordFailure(key);
-    const backoff = Math.min((healthIntervals[key]?.backoff || 60000) * 2, 600000);
-    healthIntervals[key] = { nextCheck: Date.now() + backoff, backoff };
+    // 404 means the model/function isn't available for this account — auto-disable
+    // so we stop probing it forever. Re-enable by setting enabled:true in config.
+    if (String(err.message).includes('404')) {
+      provider.enabled = false;
+      getHealth()[key].status = 'disabled';
+      getHealth()[key].reason = 'отключён автоматически (404)';
+      logger.warn('Provider auto-disabled (404)', { key, model: provider.model });
+    } else {
+      const backoff = Math.min((healthIntervals[key]?.backoff || 60000) * 2, 600000);
+      healthIntervals[key] = { nextCheck: Date.now() + backoff, backoff };
+    }
     return false;
   }
 }
@@ -117,12 +136,23 @@ async function handleChatCompletion(req, res, body) {
   }
 
   // Weighted selection among healthy providers
+  const today = new Date().toISOString().slice(0, 10);
   const healthyProviders = Object.entries(PROVIDERS)
     .filter(([_, p]) => p.enabled && !isCircuitOpen(p.key) && getHealth()[p.key]?.status === 'up');
 
+  // Prefer providers below 90% of their daily limit; only fall back to
+  // near-exhausted ones if that leaves nothing (avoids avoidable 429s).
+  let pool = healthyProviders;
+  const underLimit = healthyProviders.filter(([_, p]) => {
+    const limit = p.dailyLimit || 1000;
+    const used = (getStats().dailyUsage?.[p.key]?.[today]) || 0;
+    return used < limit * 0.9;
+  });
+  if (underLimit.length > 0) pool = underLimit;
+
   let selected = [];
-  if (healthyProviders.length > 0) {
-    const scored = healthyProviders.map(([key, provider]) => {
+  if (pool.length > 0) {
+    const scored = pool.map(([key, provider]) => {
       const h = getHealth()[key];
       let score = h.score || 50;
       // Latency is only reliable after real requests; unmeasured/zero latency
@@ -235,6 +265,13 @@ async function handleChatCompletion(req, res, body) {
       getHealth()[key].status = statusCode === 429 ? 'ratelimited' : 'error';
       getHealth()[key].score = Math.max(0, (getHealth()[key].score || 50) - (statusCode === 429 ? 5 : 10));
       recordFailure(key, statusCode);
+      // 404 = model not available for this account — disable permanently
+      if (statusCode === 404) {
+        provider.enabled = false;
+        getHealth()[key].status = 'disabled';
+        getHealth()[key].reason = 'отключён автоматически (404)';
+        logger.warn('Provider auto-disabled (404)', { key, model: provider.model });
+      }
     }
   }
 

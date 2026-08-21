@@ -88,5 +88,32 @@
     "keyHint": "openrouter.ai → Keys",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
     "free": true
+  },
+  "or-nemotron-550b": {
+    "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+    "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "priority": 11,
+    "dailyLimit": 50,
+    "keyHint": "openrouter.ai → Keys",
+    "envVar": "PROVIDER_OPENROUTER_APIKEY",
+    "free": true
+  },
+  "or-nemotron-120b": {
+    "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+    "model": "nvidia/nemotron-3-super-120b-a12b:free",
+    "priority": 12,
+    "dailyLimit": 50,
+    "keyHint": "openrouter.ai → Keys",
+    "envVar": "PROVIDER_OPENROUTER_APIKEY",
+    "free": true
+  },
+  "or-gpt-oss-20b": {
+    "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+    "model": "openai/gpt-oss-20b:free",
+    "priority": 13,
+    "dailyLimit": 50,
+    "keyHint": "openrouter.ai → Keys",
+    "envVar": "PROVIDER_OPENROUTER_APIKEY",
+    "free": true
   }
 }
