@@ -1,0 +1,21 @@
+services:
+  davil-cod:
+    image: nik951751/davil-cod:latest
+    container_name: davil-cod
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      - AUTH=change-me
+      # Добавь свои ключи бесплатных провайдеров:
+      - PROVIDER_GROQ_APIKEY=
+      - PROVIDER_MISTRAL_APIKEY=
+      - PROVIDER_GEMINI_APIKEY=
+      - PROVIDER_NIM_APIKEY=
+      - PROVIDER_OPENROUTER_APIKEY=
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
