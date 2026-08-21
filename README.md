@@ -1,5 +1,9 @@
 # DAVIL Cod
 
+[![CI](https://github.com/Artur21101965/davil-cod/actions/workflows/ci.yml/badge.svg)](https://github.com/Artur21101965/davil-cod/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![npm](https://img.shields.io/npm/v/davil-cod.svg)](https://www.npmjs.com/package/davil-cod)
+
 Бесплатный multi-provider LLM-прокси с автоматическим failover. Один
 OpenAI-совместимый endpoint — а за ним ротация бесплатных моделей Groq,
 Mistral, NVIDIA NIM, Gemini, OpenRouter и ZAI. Если один провайдер упал
