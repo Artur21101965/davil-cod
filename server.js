@@ -255,12 +255,21 @@ const server = http.createServer(async (req, res) => {
 
   if (parsedUrl.pathname === '/v1/stats') {
     const s = getStats();
+    const today = new Date().toISOString().slice(0, 10);
+    const limits = {};
+    for (const [key, p] of Object.entries(PROVIDERS)) {
+      const limit = p.dailyLimit;
+      if (!limit) continue;
+      const used = (s.dailyUsage?.[key]?.[today]) || 0;
+      limits[key] = { limit, used, remaining: Math.max(0, limit - used), percent: Math.min(100, Math.round((used / limit) * 100)) };
+    }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       total_requests: s.totalRequests, successful_requests: s.successfulRequests, failed_requests: s.failedRequests,
       provider_usage: s.providerUsage, token_usage: s.tokenUsage, errors: s.errors, uptime_seconds: Math.floor((Date.now() - s.startTime) / 1000),
       health: Object.fromEntries(Object.entries(getHealth()).map(([k, v]) => [k, { status: v.status, score: v.score, latency_ms: v.latency }])),
       cache: cache.stats(),
+      limits,
     }));
     return;
   }
