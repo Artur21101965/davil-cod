@@ -13,6 +13,7 @@ const logger = require('./lib/logger');
 loadState();
 
 const cache = new LRUCache(500, 3600000);
+require('./lib/cache')._activeCache = cache;
 
 // Load config (with fallback so a corrupt config never crashes the server)
 const CONFIG_PATH = path.join(__dirname, 'config.json');
@@ -332,5 +333,5 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log('Dashboard: http://localhost:' + PORT + '/');
 });
 
-process.on('SIGINT', () => { require('./lib/health').saveState(); server.close(() => process.exit(0)); });
-process.on('SIGTERM', () => { require('./lib/health').saveState(); server.close(() => process.exit(0)); });
+process.on('SIGINT', () => { require('./lib/health').saveState(); cache.persist(); server.close(() => process.exit(0)); });
+process.on('SIGTERM', () => { require('./lib/health').saveState(); cache.persist(); server.close(() => process.exit(0)); });
