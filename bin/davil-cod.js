@@ -124,6 +124,43 @@ if (cmd === 'init') {
     console.log('   Запусти: npx davil-cod start');
     process.exit(1);
   });
+} else if (cmd === 'status') {
+  const http = require('http');
+  const base = `http://127.0.0.1:${process.env.PORT || 4000}`;
+  const pkg = require(path.join(ROOT, 'package.json'));
+  console.log('DAVIL Cod v' + pkg.version);
+  console.log('-----------------------------');
+  http.get(base + '/v1/stats', (res) => {
+    let data = '';
+    res.on('data', (c) => data += c);
+    res.on('end', () => {
+      if (res.statusCode !== 200) {
+        console.log('❌ Прокси не отвечает (HTTP ' + res.statusCode + ')');
+        console.log('   Запусти: npx davil-cod start');
+        process.exit(1);
+      }
+      try {
+        const s = JSON.parse(data);
+        console.log(`Запросов: ${s.total_requests} (успех ${s.successful_requests}, ошибок ${s.failed_requests})`);
+        console.log(`Кэш: ${s.cache.size}/${s.cache.maxSize}, точность ${s.cache.hitRate}%`);
+        const up = Object.values(s.health).filter(h => h.status === 'up').length;
+        console.log(`Провайдеры: ${up}/${Object.keys(s.health).length} в строю`);
+        for (const [k, h] of Object.entries(s.health)) {
+          const icon = h.status === 'up' ? '✅' : '❌';
+          const limit = s.limits?.[k];
+          const limitStr = limit ? ` · лимит ${limit.used}/${limit.limit}` : '';
+          console.log(`  ${icon} ${k} (${h.latency_ms}ms)${limitStr}${h.reason ? ' · ' + h.reason : ''}`);
+        }
+      } catch (e) {
+        console.log('❌ Не удалось разобрать ответ: ' + e.message);
+        process.exit(1);
+      }
+    });
+  }).on('error', () => {
+    console.log('❌ Прокси не запущен на ' + base);
+    console.log('   Запусти: npx davil-cod start');
+    process.exit(1);
+  });
 } else if (cmd === 'version' || cmd === '-v' || cmd === '--version') {
   const pkg = require(path.join(ROOT, 'package.json'));
   console.log(pkg.version);
@@ -132,6 +169,7 @@ if (cmd === 'init') {
   console.log('Команды:');
   console.log('  npx davil-cod init       интерактивная настройка (ключи, пароль)');
   console.log('  npx davil-cod start      запустить прокси');
+  console.log('  npx davil-cod status     диагностика: провайдеры, лимиты, ошибки');
   console.log('  npx davil-cod test       проверить, что прокси работает');
   console.log('  npx davil-cod dashboard  открыть дашборд');
 }
