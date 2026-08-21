@@ -3,6 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const { LRUCache } = require('../lib/cache');
+const { acquire } = require('../lib/pool');
 const { checkRateLimit } = require('../lib/rateLimit');
 
 test('LRUCache: stores and retrieves by model/messages', () => {
@@ -167,6 +168,27 @@ test('CLI: init (non-interactive) creates config and env without overwriting', (
   assert.strictEqual(cfg.port, 4123, 'existing config not overwritten');
   assert.ok(fs.existsSync(path.join(tmp, '.env')), '.env created');
   fs.rmSync(tmp, { recursive: true, force: true });
+});
+
+test('pool: limits concurrency and queues overflow', async () => {
+  const { acquire, stats } = require('../lib/pool');
+  const key = 'pooltest-' + Date.now();
+  const releases = [];
+  // Acquire max (default 6) slots
+  for (let i = 0; i < 6; i++) {
+    releases.push(await acquire(key));
+  }
+  // 7th must queue (not resolve immediately)
+  let queued = false;
+  const p = acquire(key).then((r) => { releases.push(r); queued = true; });
+  await new Promise(r => setTimeout(r, 50));
+  assert.strictEqual(queued, false, '7th acquire should queue');
+  // Release one slot → queued one resolves
+  releases[0]();
+  await p;
+  assert.strictEqual(queued, true, 'queued acquire resolves after release');
+  // Cleanup
+  releases.forEach(r => { try { r(); } catch {} });
 });
 
 // Stop background timers so the test process can exit (health.js sets setInterval)
