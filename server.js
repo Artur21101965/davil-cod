@@ -39,24 +39,43 @@ const RATE_LIMIT = config.rateLimit || { maxRequests: 100, windowMs: 60000 };
 // Health check
 const healthIntervals = {}; // key -> { nextCheck, backoff }
 
-function providerModelsEndpoint(endpoint) {
-  return endpoint.replace('/chat/completions', '/models');
-}
-
 async function checkProvider(key, provider) {
   initHealth(key);
+  const start = Date.now();
+  const dailyLimit = provider.dailyLimit || 1000;
+  // Providers with tight daily limits (e.g. 40-50) would burn quota on probes.
+  // Use a cheap /models GET for them; real latency probe for generous ones.
+  const cheap = dailyLimit < 100;
   try {
-    const url = new URL(providerModelsEndpoint(provider.endpoint));
-    const res = await fetch(url, { headers: { 'Authorization': `Bearer ${provider.apiKey}` }, signal: AbortSignal.timeout(10000) });
+    const body = cheap ? null : JSON.stringify({
+      model: provider.model,
+      messages: [{ role: 'user', content: 'hi' }],
+      max_tokens: 1,
+    });
+    const url = cheap ? provider.endpoint.replace('/chat/completions', '/models') : provider.endpoint;
+    const res = await fetch(url, {
+      method: body ? 'POST' : 'GET',
+      headers: {
+        ...(body ? { 'Content-Type': 'application/json' } : {}),
+        'Authorization': `Bearer ${provider.apiKey}`,
+      },
+      body,
+      signal: AbortSignal.timeout(15000),
+    });
+    const latency = Date.now() - start;
     if (res.ok) {
       recordSuccess(key);
       getHealth()[key].status = 'up';
+      getHealth()[key].latency = latency;
+      getHealth()[key].lastCheck = Date.now();
       healthIntervals[key] = { nextCheck: Date.now() + 300000, backoff: 60000 };
       return true;
     }
     throw new Error(`HTTP ${res.status}`);
   } catch (err) {
+    const latency = Date.now() - start;
     getHealth()[key].status = 'error';
+    getHealth()[key].latency = latency;
     getHealth()[key].score = Math.max(0, (getHealth()[key].score ?? 50) - 5);
     recordFailure(key);
     const backoff = Math.min((healthIntervals[key]?.backoff || 60000) * 2, 600000);
