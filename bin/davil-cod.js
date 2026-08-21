@@ -23,7 +23,9 @@ if (cmd === 'init') {
   copyExample('.env', '.env.example');
   console.log('\nГотово! Заполни .env ключами, затем: npx davil-cod start');
 } else if (cmd === 'start') {
-  const child = spawn(process.execPath, [SERVER], { stdio: 'inherit', cwd: ROOT });
+  // Spawn from the user's cwd (not package dir) so server.js picks up their
+  // config.json / .env created by `init`.
+  const child = spawn(process.execPath, [SERVER], { stdio: 'inherit' });
   child.on('close', (c) => process.exit(c || 0));
 } else if (cmd === 'dashboard') {
   console.log('Открой http://localhost:4000/ (запусти start сначала)');

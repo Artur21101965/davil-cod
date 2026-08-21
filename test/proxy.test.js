@@ -101,6 +101,12 @@ test('providers: catalog loads and merges with user config', () => {
   assert.ok(Object.keys(PROVIDERS).length >= 10, 'merged providers >= 10');
 });
 
+test('providers: catalog providers are enabled by default', () => {
+  const { PROVIDERS } = require('../lib/providers');
+  const enabled = Object.entries(PROVIDERS).filter(([_, p]) => p.enabled !== false);
+  assert.ok(enabled.length >= 10, 'at least 10 providers enabled by default');
+});
+
 // Stop background timers so the test process can exit (health.js sets setInterval)
 require('../lib/health')._stopTimers();
 require('../lib/cache')._stopTimers();

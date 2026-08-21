@@ -17,8 +17,10 @@ const cache = new LRUCache(500, 3600000);
 require('./lib/cache')._activeCache = cache;
 
 // Load config (with fallback so a corrupt config never crashes the server)
-const CONFIG_PATH = path.join(__dirname, 'config.json');
-let config = { port: 4000, auth: 'free-llm-proxy-2024', rateLimit: { maxRequests: 100, windowMs: 60000 } };
+// Prefer cwd config.json (user's project) over the package dir.
+const CONFIG_CANDIDATES = [path.join(process.cwd(), 'config.json'), path.join(__dirname, 'config.json')];
+const CONFIG_PATH = CONFIG_CANDIDATES.find(p => fs.existsSync(p)) || CONFIG_CANDIDATES[1];
+let config = { port: 4000, auth: '', rateLimit: { maxRequests: 100, windowMs: 60000 } };
 try {
   const parsed = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
   if (parsed && typeof parsed === 'object') config = { ...config, ...parsed };
