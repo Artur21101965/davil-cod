@@ -78,7 +78,10 @@ async function checkProvider(key, provider) {
     if (res.ok) {
       recordSuccess(key);
       getHealth()[key].status = 'up';
-      getHealth()[key].latency = latency;
+      // Only record latency for real generation probes (non-cheap). /models GET
+      // latency (30-100ms) does not reflect generation speed and would wrongly
+      // dominate the weighted selection.
+      if (!cheap) getHealth()[key].latency = latency;
       getHealth()[key].lastCheck = Date.now();
       healthIntervals[key] = { nextCheck: Date.now() + 300000, backoff: 60000 };
       return true;
