@@ -1,6 +1,6 @@
 {
   "name": "davil-cod",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "description": "Free multi-provider LLM proxy with automatic failover. Route your AI tools through free models from Groq, Mistral, NIM, Gemini, OpenRouter and more.",
   "license": "MIT",
   "bin": {
