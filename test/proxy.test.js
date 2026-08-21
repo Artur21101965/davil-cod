@@ -91,6 +91,16 @@ test('health: dailyUsage tracks per-provider per-day counts', () => {
   assert.strictEqual(usage[key]?.[today], 2);
 });
 
+test('providers: catalog loads and merges with user config', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const catalogPath = path.join(__dirname, '..', 'providers.json');
+  const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
+  assert.ok(Object.keys(catalog).length >= 10, 'catalog has >=10 providers');
+  const { PROVIDERS } = require('../lib/providers');
+  assert.ok(Object.keys(PROVIDERS).length >= 10, 'merged providers >= 10');
+});
+
 // Stop background timers so the test process can exit (health.js sets setInterval)
 require('../lib/health')._stopTimers();
 require('../lib/cache')._stopTimers();

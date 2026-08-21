@@ -1,0 +1,17 @@
+{
+  "$comment": "Copy to config.json. Keys go in .env, not here. Custom providers beyond the catalog go here.",
+  "port": 4000,
+  "auth": "your-secret-key-here",
+  "rateLimit": { "maxRequests": 100, "windowMs": 60000 },
+  "providers": {
+    "or-nemotron-550b": {
+      "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+      "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "priority": 11,
+      "dailyLimit": 50,
+      "keyHint": "openrouter.ai → Keys",
+      "envVar": "PROVIDER_OPENROUTER_APIKEY",
+      "free": true
+    }
+  }
+}
