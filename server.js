@@ -7,7 +7,7 @@ const { PROVIDERS, MODEL_MAP, callProvider } = require('./lib/providers');
 const { loadState, initHealth, isCircuitOpen, recordSuccess, recordFailure, recordRequest, recordTokens, getHealth, getStats, recordRecent, recordRpm, getRecent, getRpm } = require('./lib/health');
 const { checkRateLimit } = require('./lib/rateLimit');
 const { handleDashboard } = require('./lib/dashboard');
-const { acquire } = require('./lib/pool');
+const { acquire, stats: poolStats } = require('./lib/pool');
 const logger = require('./lib/logger');
 
 // Load persisted state
@@ -420,6 +420,7 @@ const server = http.createServer(async (req, res) => {
       })),
       cache: cache.stats(),
       limits,
+      pool: poolStats(),
     }));
     return;
   }
