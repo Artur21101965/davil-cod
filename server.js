@@ -116,6 +116,13 @@ async function handleChatCompletion(req, res, body) {
       // Providers with a history of failures lose weight (stability first)
       const errorCount = getStats().errors[key] || 0;
       if (errorCount > 5) weight *= 0.4;
+      // Today's reliability: providers that have been 100% successful get a boost
+      const rel = getStats().reliability?.[key];
+      if (rel && rel.success + rel.fail >= 3) {
+        const ratio = rel.success / (rel.success + rel.fail);
+        if (ratio === 1) weight *= 1.3;
+        else if (ratio < 0.5) weight *= 0.5;
+      }
       return { key, provider, weight };
     }).sort((a, b) => b.weight - a.weight);
 
