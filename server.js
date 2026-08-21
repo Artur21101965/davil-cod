@@ -329,7 +329,21 @@ const server = http.createServer(async (req, res) => {
 
   const parsedUrl = new URL(req.url, 'http://localhost:' + PORT);
 
-  if (parsedUrl.pathname === '/') { handleDashboard(req, res); return; }
+  if (parsedUrl.pathname === '/') {
+    // Protect the dashboard with auth if one is configured.
+    // Browser-friendly: accept ?key= or Authorization header.
+    if (AUTH_KEY) {
+      const keyFromQuery = parsedUrl.searchParams.get('key');
+      const keyFromHeader = (req.headers.authorization || '').replace('Bearer ', '').trim();
+      if (keyFromQuery !== AUTH_KEY && keyFromHeader !== AUTH_KEY) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'Invalid API key', code: 'invalid_api_key' } }));
+        return;
+      }
+    }
+    handleDashboard(req, res);
+    return;
+  }
 
   if (parsedUrl.pathname === '/health') {
     const h = getHealth();
