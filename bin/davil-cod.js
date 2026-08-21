@@ -103,6 +103,59 @@ if (cmd === 'init') {
   // config.json / .env created by `init`.
   const child = spawn(process.execPath, [SERVER], { stdio: 'inherit' });
   child.on('close', (c) => process.exit(c || 0));
+} else if (cmd === 'install-service') {
+  const os = require('os');
+  const { execSync } = require('child_process');
+  const isMac = process.platform === 'darwin';
+  const launchDir = process.cwd();
+  const label = 'com.davilcod.proxy';
+
+  if (isMac) {
+    const plist = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>${label}</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>${process.execPath}</string>
+        <string>${SERVER}</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>${launchDir}</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+</dict>
+</plist>`;
+    const plistPath = path.join(os.homedir(), 'Library', 'LaunchAgents', label + '.plist');
+    fs.writeFileSync(plistPath, plist);
+    execSync(`launchctl unload ${plistPath} 2>/dev/null; launchctl load ${plistPath}`);
+    console.log('✅ Служба автозапуска установлена (launchd)');
+    console.log('   Прокси будет запускаться при включении компьютера');
+  } else {
+    // Linux: systemd user service
+    const unit = `[Unit]
+Description=DAVIL Cod LLM proxy
+After=network.target
+
+[Service]
+WorkingDirectory=${launchDir}
+ExecStart=${process.execPath} ${SERVER}
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+`;
+    const unitPath = path.join(os.homedir(), '.config', 'systemd', 'user', 'davil-cod.service');
+    fs.mkdirSync(path.dirname(unitPath), { recursive: true });
+    fs.writeFileSync(unitPath, unit);
+    execSync(`systemctl --user daemon-reload && systemctl --user enable davil-cod && systemctl --user start davil-cod`);
+    console.log('✅ Служба автозапуска установлена (systemd)');
+  }
 } else if (cmd === 'dashboard') {
   console.log('Открой http://localhost:4000/ (запусти start сначала)');
 } else if (cmd === 'test') {
@@ -172,4 +225,5 @@ if (cmd === 'init') {
   console.log('  npx davil-cod status     диагностика: провайдеры, лимиты, ошибки');
   console.log('  npx davil-cod test       проверить, что прокси работает');
   console.log('  npx davil-cod dashboard  открыть дашборд');
+  console.log('  npx davil-cod install-service  автозапуск при старте системы');
 }
