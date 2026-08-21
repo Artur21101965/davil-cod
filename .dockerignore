@@ -6,3 +6,6 @@ cache.json
 watchdog.sh
 test/
 deploy-oracle.sh
+.env
+config.json
+scripts/
