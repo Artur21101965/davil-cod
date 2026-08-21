@@ -104,8 +104,44 @@ docker run -d --name davil-cod -p 4000:4000 \
 ## Разработка
 
 ```bash
-npm test          # unit-тесты (10 шт.)
+npm test          # unit-тесты (16 шт.)
 node server.js    # запуск из исходников
+```
+
+## Конфигурация
+
+**Ключи** — только в `.env` (не в git):
+
+```bash
+PROVIDER_GROQ_APIKEY=...       # Groq
+PROVIDER_MISTRAL_APIKEY=...    # Mistral
+PROVIDER_GEMINI_APIKEY=...     # Gemini
+PROVIDER_NIM_APIKEY=...        # NVIDIA NIM
+PROVIDER_OPENROUTER_APIKEY=... # OpenRouter
+PROVIDER_ZAI_APIKEY=...        # ZAI
+```
+
+**Параметры сервера** — в `config.json` или env:
+
+| Параметр | Env | По умолчанию |
+|----------|-----|--------------|
+| Порт | `PORT` | `4000` |
+| Пароль | `AUTH` | пусто (нет auth) |
+| Лимит запросов/мин | `config.json → rateLimit` | 100/мин |
+
+**Провайдеры** — каталог в `providers.json` (13 шт.). Добавить свой:
+впиши его в `config.json` → `providers` (формат как в `providers.json`).
+
+## Команды CLI
+
+```bash
+npx davil-cod init              # создать конфиг
+npx davil-cod init -i           # интерактивный мастер (ключи, пароль)
+npx davil-cod start             # запустить прокси
+npx davil-cod status            # диагностика: провайдеры, лимиты, ошибки
+npx davil-cod test              # проверить, что работает
+npx davil-cod install-service   # автозапуск при старте системы
+npx davil-cod dashboard         # открыть дашборд
 ```
 
 ## FAQ
@@ -121,7 +157,8 @@ node server.js    # запуск из исходников
 **Могу добавить свой провайдер?** Да — впиши его в `config.json` или
 `providers.json`.
 
-**Это только для opencode?** Нет. Любой OpenAI-совместимый клиент.
+**Это только для opencode?** Нет. Любой OpenAI-совместимый клиент
+(см. `examples/` — Cursor, Claude Code, скрипты).
 
 ## Лицензия
 
