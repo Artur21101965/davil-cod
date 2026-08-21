@@ -31,6 +31,13 @@ npx davil-cod init        # создаст config.json и .env
 npx davil-cod start       # прокси на http://localhost:4000
 ```
 
+Удобнее — интерактивный мастер, он спросит пароль и ключи каждого провайдера:
+
+```bash
+npx davil-cod init -i     # пошагово: пароль → ключи Groq/Mistral/NIM/...
+npx davil-cod start
+```
+
 Или в Docker:
 
 ```bash
