@@ -36,7 +36,10 @@
 ```bash
 npx davil-cod init -i     # мастер спросит: пароль + ключи каждого провайдера
 npx davil-cod start       # прокси на http://localhost:4000
+npx davil-cod test        # проверить, что всё работает
 ```
+
+Дашборд: `http://localhost:4000/?key=твой_пароль`
 
 Или через Docker:
 
