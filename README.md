@@ -9,6 +9,8 @@ OpenAI-совместимый endpoint — а за ним ротация бес�
 Mistral, NVIDIA NIM, Gemini, OpenRouter и ZAI. Если один провайдер упал
 или сжёг дневной лимит — запрос автоматически уходит на другой.
 
+![Дашборд DAVIL Cod](assets/dashboard.png)
+
 ## Возможности
 
 - **Безотказность** — до 10+ провайдеров в цепочке, circuit breaker,

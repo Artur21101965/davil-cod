@@ -12,5 +12,5 @@
   },
   "engines": { "node": ">=18" },
   "keywords": ["llm", "proxy", "free", "openai", "failover", "groq", "mistral", "gemini"],
-  "files": ["server.js", "lib/", "providers.json", "config.example.json", ".env.example", "bin/"]
+  "files": ["server.js", "lib/", "providers.json", "config.example.json", ".env.example", "bin/", "assets/"]
 }
