@@ -81,6 +81,16 @@ test('health: classifyErrorMs returns sane durations', () => {
   assert.strictEqual(health.isCircuitOpen(key), true);
 });
 
+test('health: dailyUsage tracks per-provider per-day counts', () => {
+  const health = require('../lib/health');
+  const key = `daily-${Date.now()}`;
+  health.recordRequest(key, true);
+  health.recordRequest(key, true);
+  const today = new Date().toISOString().slice(0, 10);
+  const usage = health.getDailyUsage();
+  assert.strictEqual(usage[key]?.[today], 2);
+});
+
 // Stop background timers so the test process can exit (health.js sets setInterval)
 require('../lib/health')._stopTimers();
 require('../lib/cache')._stopTimers();
