@@ -126,16 +126,25 @@ async function handleChatCompletion(req, res, body) {
   const targetProviderKey = MODEL_MAP[requestedModel] || 'zai';
   const isStreaming = body.stream === true;
 
-  // Check cache for non-streaming
-  if (!isStreaming) {
-    const cached = cache.get(requestedModel, body.messages, body.temperature);
-    if (cached) {
-      logger.request({ model: requestedModel, provider: 'cache', status: 200, cached: true });
-      recordRecent({ model: requestedModel, provider: 'cache', status: 200, latency: 0, cached: true });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(cached));
+  // Check cache (works for both streaming and non-streaming)
+  const cached = cache.get(requestedModel, body.messages, body.temperature);
+  if (cached) {
+    logger.request({ model: requestedModel, provider: 'cache', status: 200, cached: true });
+    recordRecent({ model: requestedModel, provider: 'cache', status: 200, latency: 0, cached: true });
+    if (isStreaming) {
+      // Replay cached answer as an SSE stream
+      res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
+      const content = cached.choices?.[0]?.message?.content || '';
+      res.write(`data: ${JSON.stringify({ id: 'chatcmpl-cached', object: 'chat.completion.chunk', created: Math.floor(Date.now() / 1000), model: cached.model, choices: [{ index: 0, delta: { role: 'assistant', content: '' }, finish_reason: null }] })}\n\n`);
+      res.write(`data: ${JSON.stringify({ id: 'chatcmpl-cached', object: 'chat.completion.chunk', created: Math.floor(Date.now() / 1000), model: cached.model, choices: [{ index: 0, delta: { content }, finish_reason: null }] })}\n\n`);
+      res.write(`data: ${JSON.stringify({ id: 'chatcmpl-cached', object: 'chat.completion.chunk', created: Math.floor(Date.now() / 1000), model: cached.model, choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] })}\n\n`);
+      res.write('data: [DONE]\n\n');
+      res.end();
       return;
     }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(cached));
+    return;
   }
 
   // Weighted selection among healthy providers
@@ -228,9 +237,23 @@ async function handleChatCompletion(req, res, body) {
       if (isStreaming && result.stream) {
         res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
         const { Transform } = require('stream');
+        // Accumulate content deltas so we can cache the final answer for
+        // identical repeat prompts (opencode always streams).
+        const chunks = [];
         const cleaner = new Transform({
           transform(chunk, encoding, callback) {
             const str = chunk.toString();
+            // Collect SSE JSON payloads for caching
+            const lines = str.split('\n');
+            for (const line of lines) {
+              const m = line.match(/^data: (.+)$/);
+              if (!m || m[1].trim() === '[DONE]') continue;
+              try {
+                const obj = JSON.parse(m[1]);
+                const delta = obj.choices?.[0]?.delta?.content;
+                if (typeof delta === 'string') chunks.push(delta);
+              } catch {}
+            }
             const cleaned = str.replace(/^data: (.+)$/gm, (match, jsonStr) => {
               if (jsonStr.trim() === '[DONE]') return match;
               try {
@@ -241,6 +264,20 @@ async function handleChatCompletion(req, res, body) {
               } catch { return match; }
             });
             callback(null, cleaned);
+          }
+        });
+        result.stream.on('end', () => {
+          // Cache the assembled answer for repeat prompts (only if complete)
+          if (chunks.length > 0) {
+            const full = chunks.join('');
+            cache.set(requestedModel, body.messages, body.temperature, {
+              id: 'chatcmpl-cached',
+              object: 'chat.completion',
+              created: Math.floor(Date.now() / 1000),
+              model: provider.model,
+              choices: [{ index: 0, message: { role: 'assistant', content: full }, finish_reason: 'stop' }],
+              usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+            });
           }
         });
         result.stream.on('error', (err) => {
