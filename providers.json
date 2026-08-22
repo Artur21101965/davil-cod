@@ -125,5 +125,23 @@
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
     "free": true,
     "reasoning": true
+  },
+  "or-nemotron-35": {
+    "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+    "model": "nvidia/nemotron-3.5-lightning:free",
+    "priority": 14,
+    "dailyLimit": 100,
+    "keyHint": "openrouter.ai → Keys (Nemotron 3.5 Lightning: 977K контекст)",
+    "envVar": "PROVIDER_OPENROUTER_APIKEY",
+    "free": true
+  },
+  "or-laguna-s": {
+    "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+    "model": "poolside/laguna-s-2.1:free",
+    "priority": 15,
+    "dailyLimit": 100,
+    "keyHint": "openrouter.ai → Keys (Laguna S: кодинг, 118B)",
+    "envVar": "PROVIDER_OPENROUTER_APIKEY",
+    "free": true
   }
 }
