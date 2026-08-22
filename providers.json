@@ -115,5 +115,15 @@
     "keyHint": "openrouter.ai → Keys",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
     "free": true
+  },
+  "or-ox-alpha": {
+    "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+    "model": "stealth/ox-alpha",
+    "priority": 3,
+    "dailyLimit": 100,
+    "keyHint": "openrouter.ai → Keys (Ox Alpha: 1M контекст, reasoning, бесплатно)",
+    "envVar": "PROVIDER_OPENROUTER_APIKEY",
+    "free": true,
+    "reasoning": true
   }
 }
