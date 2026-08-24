@@ -337,7 +337,19 @@ async function handleChatCompletion(req, res, body) {
       recordRequest(key, false, err.message);
       recordRecent({ model: requestedModel, provider: key, status: statusCode, latency: 0, cached: false });
       initHealth(key);
-      getHealth()[key].status = statusCode === 429 ? 'ratelimited' : 'error';
+      // Do NOT flip provider to 'error' on a single failed request — transient
+      // failures (timeout, 5xx, one-off 429) shouldn't kill a healthy provider.
+      // The circuit breaker (3 failures) and periodic health-check handle that.
+      // Only a 429 marks it ratelimited (informational); 404 disables entirely.
+      if (statusCode === 429) {
+        getHealth()[key].status = 'ratelimited';
+        getHealth()[key].reason = 'лимит провайдера (429)';
+      } else if (statusCode !== 404 && getHealth()[key].status === 'up') {
+        // keep 'up' — it may just be a transient blip; health-check re-verifies
+      } else {
+        getHealth()[key].status = 'error';
+        getHealth()[key].reason = 'не отвечает';
+      }
       getHealth()[key].score = Math.max(0, (getHealth()[key].score || 50) - (statusCode === 429 ? 5 : 10));
       recordFailure(key, statusCode);
       // 404 = model not available for this account — disable permanently
