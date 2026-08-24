@@ -1,7 +1,7 @@
 {
   "name": "davil-cod",
   "version": "0.4.2",
-  "description": "Free multi-provider LLM proxy with automatic failover. Route your AI tools through free models from Groq, Mistral, NIM, Gemini, OpenRouter and more.",
+  "description": "Free multi-provider LLM proxy with automatic failover. One OpenAI-compatible endpoint routes to 18 free models (Groq, Mistral, Gemini, NIM, OpenRouter, ZAI). Never pay for LLMs.",
   "license": "MIT",
   "bin": {
     "davil-cod": "./bin/davil-cod.js"
@@ -21,7 +21,11 @@
     "failover",
     "groq",
     "mistral",
-    "gemini"
+    "gemini",
+    "llm-gateway",
+    "multi-provider",
+    "self-hosted",
+    "vision"
   ],
   "files": [
     "server.js",
@@ -30,6 +34,8 @@
     "config.example.json",
     ".env.example",
     "bin/",
-    "assets/"
+    "assets/",
+    "README.md",
+    "README.ru.md"
   ]
 }

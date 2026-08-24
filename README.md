@@ -6,42 +6,44 @@
 [![npm](https://img.shields.io/npm/v/davil-cod.svg)](https://www.npmjs.com/package/davil-cod)
 [![GitHub stars](https://img.shields.io/github/stars/Artur21101965/davil-cod?style=social)](https://github.com/Artur21101965/davil-cod)
 
-## Зачем платить за LLM, когда есть бесплатные?
+**[Русская версия](README.ru.md) · Russian version**
 
-Твой AI-агент, бот или скрипт использует один OpenAI-совместимый endpoint.
-За ним DAVIL Cod автоматически распределяет запросы между **13 бесплатными
-моделями** — Groq, Mistral, Gemini, NVIDIA NIM, OpenRouter, ZAI. Если один
-провайдер упал, перегружен или сжёг дневной лимит — запрос **мгновенно
-уходит на следующий**. Ты никогда не видишь «rate limit», и никогда не
-платишь.
+## Why pay for LLMs when free ones exist?
 
-**Результат:** полноценный LLM-доступ для повседневной работы по цене $0.
+Your AI agent, bot, or script talks to a single OpenAI-compatible endpoint.
+Behind it, DAVIL Cod automatically routes requests across **18 free models**
+from Groq, Mistral, Gemini, NVIDIA NIM, OpenRouter, and ZAI. If one provider
+goes down, gets overloaded, or burns its daily limit — the request
+**instantly falls through to the next one**. You never see "rate limit",
+and you never pay.
 
-![Дашборд DAVIL Cod](assets/dashboard.png)
+**Result:** full LLM access for everyday work at the price of **$0**.
 
-## Возможности
+![DAVIL Cod Dashboard](assets/dashboard.png)
+
+## Features
 
 | | |
 |---|---|
-| 🔀 **Автопереключение** | 13 провайдеров в одной цепочке. Провайдер упал? Следующий уже отвечает. |
-| 💰 **Бесплатно** | Только free-модели. Дашборд показывает остаток лимита каждого провайдера. |
-| ⚡ **Умный выбор** | Прокси сам находит самый быстрый и стабильный провайдер для каждого запроса. |
-| 🛡️ **Надёжность** | Circuit breaker, очередь запросов, автоотключение мёртвых провайдеров, watchdog. |
-| 📊 **Дашборд** | Статус, скорость, лимиты, история, токены, RPM-график — на русском. |
-| 💾 **Кэш на диске** | Повторные промпты не тратят лимиты вообще. |
-| 🔌 **Совместимость** | Любой OpenAI-клиент: opencode, Cursor, ChatGPT-аналоги, твои скрипты. |
+| 🔀 **Auto-failover** | 18 providers in one chain. Provider down? The next one answers. |
+| 💰 **Free** | Free models only. The dashboard shows each provider's remaining limit. |
+| ⚡ **Smart routing** | Picks the fastest, most stable provider for every request. |
+| 🛡️ **Reliability** | Circuit breaker, request queue, auto-disable of dead providers, watchdog. |
+| 📊 **Dashboard** | Status, speed, limits, history, tokens, RPM chart. |
+| 💾 **Disk cache** | Repeat prompts don't consume limits at all. |
+| 🔌 **Compatible** | Any OpenAI client: opencode, Cursor, your scripts. |
 
-## Быстрый старт — 30 секунд
+## Quick start — 30 seconds
 
 ```bash
-npx davil-cod init -i     # мастер спросит: пароль + ключи каждого провайдера
-npx davil-cod start       # прокси на http://localhost:4000
-npx davil-cod test        # проверить, что всё работает
+npx davil-cod init -i     # wizard: password + each provider's key
+npx davil-cod start       # proxy on http://localhost:4000
+npx davil-cod test        # verify everything works
 ```
 
-Дашборд: `http://localhost:4000/?key=твой_пароль`
+Dashboard: `http://localhost:4000/?key=your_password`
 
-Или через Docker:
+Or via Docker:
 
 ```bash
 docker run -d --name davil-cod -p 4000:4000 \
@@ -51,15 +53,15 @@ docker run -d --name davil-cod -p 4000:4000 \
   nik951751/davil-cod
 ```
 
-### Подключение к любому OpenAI-клиенту
+### Connect any OpenAI client
 
-| Поле | Значение |
-|------|----------|
+| Field | Value |
+|-------|-------|
 | Base URL | `http://localhost:4000/v1` |
-| API Key | твой пароль из `init` |
-| Модель | `tier-s` (быстрая) / `tier-splus` (мощная) |
+| API Key | your password from `init` |
+| Model | `tier-s` (fast) / `tier-splus` (powerful) |
 
-Пример для opencode (`~/.config/opencode/opencode.jsonc`):
+Example for opencode (`~/.config/opencode/opencode.jsonc`):
 
 ```jsonc
 {
@@ -80,37 +82,37 @@ docker run -d --name davil-cod -p 4000:4000 \
 }
 ```
 
-## Поддерживаемые провайдеры
+## Supported providers
 
-| Провайдер | Модели | Где ключ | Лимит/день |
-|-----------|--------|----------|------------|
+| Provider | Models | Where to get key | Limit/day |
+|----------|--------|------------------|-----------|
 | Groq | gpt-oss-120b, qwen-27b | console.groq.com | 1000 |
-| Mistral | codestral, small | console.mistral.ai | 500K ток. |
-| NVIDIA NIM | deepseek, llama | build.nvidia.com | 40 |
-| Gemini | gemini-3.6-flash | aistudio.google.com | 1500 |
-| OpenRouter | cohere-north, glm, nemotron | openrouter.ai | 50 |
+| Mistral | codestral, small | console.mistral.ai | 500K tok |
+| NVIDIA NIM | deepseek, llama, vision | build.nvidia.com | 40 |
+| Gemini | gemini-3.6-flash, vision | aistudio.google.com | 1500 |
+| OpenRouter | cohere-north, glm, nemotron, ox-alpha | openrouter.ai | 50-100 |
 | ZAI | glm-4.7-flash | open.bigmodel.cn | 1000 |
 
-> Каталог расширяемый: добавь модель в `providers.json` — и она попадёт в пул.
-> Провайдеры, недоступные твоему ключу (404), отключаются автоматически.
+> The catalog is extensible: add a model to `providers.json` and it joins the pool.
+> Providers unavailable to your key (404) are auto-disabled.
 
-## Как это работает
+## How it works
 
-1. Приходит запрос на `/v1/chat/completions` (формат OpenAI).
-2. DAVIL Cod выбирает лучший провайдер: здоровый, под лимитом, самый быстрый сегодня.
-3. Если запрос не прошёл — мгновенно пробует следующий из цепочки.
-4. Ответ возвращается клиенту в том же формате — клиент ничего не замечает.
+1. A request arrives at `/v1/chat/completions` (OpenAI format).
+2. DAVIL Cod picks the best provider: healthy, under limit, fastest today.
+3. If it fails — instantly tries the next one in the chain.
+4. The response returns in the same format — the client never notices.
 
-## Разработка
+## Development
 
 ```bash
-npm test          # unit-тесты (16 шт.)
-node server.js    # запуск из исходников
+npm test          # unit tests (17)
+node server.js    # run from source
 ```
 
-## Конфигурация
+## Configuration
 
-**Ключи** — только в `.env` (не в git):
+**Keys** — only in `.env` (never committed):
 
 ```bash
 PROVIDER_GROQ_APIKEY=...       # Groq
@@ -121,61 +123,60 @@ PROVIDER_OPENROUTER_APIKEY=... # OpenRouter
 PROVIDER_ZAI_APIKEY=...        # ZAI
 ```
 
-**Параметры сервера** — в `config.json` или env:
+**Server settings** — in `config.json` or env:
 
-| Параметр | Env | По умолчанию |
-|----------|-----|--------------|
-| Порт | `PORT` | `4000` |
-| Пароль | `AUTH` | пусто (нет auth) |
-| Лимит запросов/мин | `config.json → rateLimit` | 100/мин |
+| Setting | Env | Default |
+|---------|-----|---------|
+| Port | `PORT` | `4000` |
+| Password | `AUTH` | empty (no auth) |
+| Rate limit/min | `config.json → rateLimit` | 100/min |
 
-**Провайдеры** — каталог в `providers.json` (13 шт.). Добавить свой:
-впиши его в `config.json` → `providers` (формат как в `providers.json`).
+**Providers** — catalog in `providers.json` (18 models). Add your own:
+put it in `config.json` → `providers` (same format as `providers.json`).
 
-## Команды CLI
+## CLI commands
 
 ```bash
-npx davil-cod init              # создать конфиг
-npx davil-cod init -i           # интерактивный мастер (ключи, пароль)
-npx davil-cod start             # запустить прокси
-npx davil-cod status            # диагностика: провайдеры, лимиты, ошибки
-npx davil-cod test              # проверить, что работает
-npx davil-cod install-service   # автозапуск при старте системы
-npx davil-cod dashboard         # открыть дашборд
+npx davil-cod init              # create config
+npx davil-cod init -i           # interactive wizard (keys, password)
+npx davil-cod start             # start proxy
+npx davil-cod status            # diagnostics: providers, limits, errors
+npx davil-cod test              # verify it works
+npx davil-cod install-service   # autostart at boot
+npx davil-cod dashboard         # open dashboard
 ```
 
 ## FAQ
 
-**Это законно?** Да. Ты подключаешь **свои** бесплатные ключи провайдеров —
-просто получаешь единый надёжный доступ к ним всем.
+**Is this legal?** Yes. You connect **your own** free provider keys — you just
+get a single reliable gateway to all of them.
 
-**Сколько это стоит?** $0. Только лимиты бесплатных тарифов провайдеров.
+**How much does it cost?** $0. Only the free-tier limits of the providers.
 
-**Какие модели самые быстрые?** Прокси сам измеряет и выбирает. Сейчас
-лидируют Qwen (Groq, ~300ms) и cohere-north (OpenRouter).
+**Which models are fastest?** The proxy measures and picks. Currently leading:
+Qwen (Groq, ~300ms) and cohere-north (OpenRouter).
 
-**Могу добавить свой провайдер?** Да — впиши его в `config.json` или
-`providers.json`.
+**Can I add my own provider?** Yes — add it to `config.json` or `providers.json`.
 
-**Это только для opencode?** Нет. Любой OpenAI-совместимый клиент
-(см. `examples/` — Cursor, Claude Code, скрипты).
+**Is it only for opencode?** No. Any OpenAI-compatible client
+(see `examples/` — Cursor, Claude Code, scripts).
 
-## Инструменты (tools/)
+## Tools
 
-### Генератор шортс — `tools/generate_shorts.py`
-Бесплатная генерация вертикальных видео (9:16) через **MiniMax H3** (видео + звук
-из одного промпта) или **Wan 2.1**. Работает через онлайн-демо Hugging Face —
-GPU в облаке, без установки.
+### Shorts generator — `tools/generate_shorts.py`
+Free vertical video (9:16) generation via **MiniMax H3** (video + sound from
+one prompt) or **Wan 2.1**. Runs through Hugging Face online demos — GPU in
+the cloud, no install.
 
 ```bash
 cd tools
 uv venv .venv && uv pip install --python .venv/bin/python -r requirements.txt
-export HF_TOKEN=hf_xxx            # бесплатно: huggingface.co → settings/tokens
+export HF_TOKEN=hf_xxx            # free: huggingface.co → settings/tokens
 ./.venv/bin/python generate_shorts.py "Cozy morning scene, warm light" --format 9:16 --duration 5
 ```
 
-Каталог готовых промптов: `tools/prompts.md`.
+Prompt catalog: `tools/prompts.md`.
 
-## Лицензия
+## License
 
 MIT
