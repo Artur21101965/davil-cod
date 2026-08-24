@@ -36,6 +36,7 @@ function loadEnv() {
 }
 loadEnv();
 const OPENROUTER_KEY = process.env.PROVIDER_OPENROUTER_APIKEY || '';
+const HF_TOKEN = process.env.HF_TOKEN || process.env.PROVIDER_HF_APIKEY || '';
 
 // ── category classification from model id + description ──
 function classifyModel(model, desc = '') {
@@ -71,6 +72,32 @@ async function testModel(endpoint, model, apiKey, timeout = 25000) {
   } catch {
     return { ok: false, status: 0 };
   }
+}
+
+// ── scan HuggingFace Inference Providers for free chat models ──
+async function scanHuggingFace(existingModels) {
+  if (!HF_TOKEN) return [];
+  const out = [];
+  try {
+    const res = await fetch('https://router.huggingface.co/v1/models', {
+      headers: { Authorization: `Bearer ${HF_TOKEN}` },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return out;
+    const data = await res.json();
+    for (const m of (data.data || [])) {
+      const id = m.id;
+      if (existingModels.has(id)) continue;
+      // Only chat-oriented models; skip embeddings/image
+      if (id.includes('embed') || id.includes('rerank') || id.includes('/text-embedding')) continue;
+      if (!/(qwen|llama|glm|gemma|mistral|deepseek|nemotron|gpt-oss)/i.test(id)) continue;
+      const test = await testModel('https://router.huggingface.co/v1/chat/completions', id, HF_TOKEN, 20000);
+      if (test.ok) {
+        out.push({ id, category: classifyModel(id) });
+      }
+    }
+  } catch {}
+  return out;
 }
 
 async function main() {
@@ -127,10 +154,31 @@ async function main() {
     console.error('  Не удалось получить список OpenRouter:', e.message);
   }
   console.log(`  Найдено новых: ${free.length}`);
+  let added = 0;
+
+  // ── 2b. HuggingFace Inference Providers ──
+  console.log('\n[2b/3] Ищу новые бесплатные модели на HuggingFace...');
+  const hfModels = await scanHuggingFace(existingModels);
+  console.log(`  Найдено новых на HF: ${hfModels.length}`);
+  for (const m of hfModels) {
+    const key = 'hf-' + m.id.split('/').pop().replace(/[:.]/g, '-').slice(0, 30);
+    catalog[key] = {
+      endpoint: 'https://router.huggingface.co/v1/chat/completions',
+      model: m.id,
+      priority: 20,
+      dailyLimit: 50,
+      keyHint: 'huggingface.co → Settings → Tokens (автодобавлено, ' + m.category + ')',
+      envVar: 'PROVIDER_HF_APIKEY',
+      free: true,
+      category: m.category,
+    };
+    existingModels.add(m.id);
+    console.log(`  ✅ ${m.id} → ${key} (${m.category})`);
+    added++;
+  }
 
   // ── 3. Test and add working new models ──
   console.log('\n[3/3] Проверяю и добавляю рабочие...');
-  let added = 0;
   for (const m of free) {
     const category = classifyModel(m.id, m.description || '');
     // Skip guardrail/content-safety models — not useful for chat

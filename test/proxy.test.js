@@ -221,6 +221,15 @@ test('pool: limits concurrency and queues overflow', async () => {
   releases.forEach(r => { try { r(); } catch {} });
 });
 
+test('providers: HF env var is mapped (PROVIDER_HF_APIKEY)', () => {
+  const fs = require('fs');
+  const path = require('path');
+  // Confirm the prefix map supports HF, regardless of whether an HF provider
+  // is currently in the catalog (auto-manage adds it on demand).
+  const src = fs.readFileSync(path.join(__dirname, '..', 'lib', 'providers.js'), 'utf8');
+  assert.ok(/HF:\s*'HF'/.test(src), 'HF prefix mapped in providers.js');
+});
+
 // Stop background timers so the test process can exit (health.js sets setInterval)
 require('../lib/health')._stopTimers();
 require('../lib/cache')._stopTimers();
