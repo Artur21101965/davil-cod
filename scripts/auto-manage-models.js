@@ -76,8 +76,12 @@ async function testModel(endpoint, model, apiKey, timeout = 25000) {
 
 // ── scan HuggingFace Inference Providers for free chat models ──
 async function scanHuggingFace(existingModels) {
-  if (!HF_TOKEN) return [];
+  if (!HF_TOKEN) {
+    console.log('  ⚠️ Нет PROVIDER_HF_APIKEY в .env — HF-скан пропущен.');
+    return [];
+  }
   const out = [];
+  const MAX_HF_CANDIDATES = 15;
   try {
     const res = await fetch('https://router.huggingface.co/v1/models', {
       headers: { Authorization: `Bearer ${HF_TOKEN}` },
@@ -85,18 +89,29 @@ async function scanHuggingFace(existingModels) {
     });
     if (!res.ok) return out;
     const data = await res.json();
+    const candidates = [];
     for (const m of (data.data || [])) {
       const id = m.id;
       if (existingModels.has(id)) continue;
       // Only chat-oriented models; skip embeddings/image
       if (id.includes('embed') || id.includes('rerank') || id.includes('/text-embedding')) continue;
-      if (!/(qwen|llama|glm|gemma|mistral|deepseek|nemotron|gpt-oss)/i.test(id)) continue;
-      const test = await testModel('https://router.huggingface.co/v1/chat/completions', id, HF_TOKEN, 20000);
+      if (!/(qwen|llama|glm|gemma|mistral|deepseek|nemotron|gpt-oss|phi|command|aya|falcon|olmo)/i.test(id)) continue;
+      candidates.push(m);
+    }
+    if (candidates.length > MAX_HF_CANDIDATES) {
+      console.log(`  ⏭ Всего HF-кандидатов ${candidates.length}, тестирую первые ${MAX_HF_CANDIDATES}`);
+    }
+    const tested = candidates.slice(0, MAX_HF_CANDIDATES);
+    console.log(`  HF-кандидатов для теста: ${tested.length}`);
+    for (const m of tested) {
+      const test = await testModel('https://router.huggingface.co/v1/chat/completions', m.id, HF_TOKEN, 20000);
       if (test.ok) {
-        out.push({ id, category: classifyModel(id) });
+        out.push({ id: m.id, category: classifyModel(m.id) });
       }
     }
-  } catch {}
+  } catch (e) {
+    console.error('  Не удалось получить список HuggingFace:', e.message);
+  }
   return out;
 }
 
@@ -166,7 +181,7 @@ async function main() {
       endpoint: 'https://router.huggingface.co/v1/chat/completions',
       model: m.id,
       priority: 20,
-      dailyLimit: 50,
+      dailyLimit: 200,
       keyHint: 'huggingface.co → Settings → Tokens (автодобавлено, ' + m.category + ')',
       envVar: 'PROVIDER_HF_APIKEY',
       free: true,
