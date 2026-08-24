@@ -8,7 +8,7 @@ const { loadState, initHealth, isCircuitOpen, recordSuccess, recordFailure, reco
 const { checkRateLimit } = require('./lib/rateLimit');
 const { handleDashboard } = require('./lib/dashboard');
 const { acquire, stats: poolStats } = require('./lib/pool');
-const { stripThink, cleanDelta, cleanMessage } = require('./lib/clean');
+const { stripThink, cleanDelta, cleanMessage, fixReasoningMessage } = require('./lib/clean');
 const logger = require('./lib/logger');
 
 // Load persisted state
@@ -324,7 +324,10 @@ async function handleChatCompletion(req, res, body) {
 
       if (!isStreaming && result.data) {
         delete result.data.nvext;
-        if (result.data.choices?.[0]) cleanMessage(result.data.choices[0].message);
+          if (result.data.choices?.[0]) {
+            fixReasoningMessage(result.data.choices[0].message);
+            cleanMessage(result.data.choices[0].message);
+          }
         cache.set(requestedModel, body.messages, body.temperature, result.data);
         recordTokens(key, result.usage);
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -382,7 +385,10 @@ async function handleChatCompletion(req, res, body) {
         recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
         if (!body.stream && result.data) {
           delete result.data.nvext;
-          if (result.data.choices?.[0]) cleanMessage(result.data.choices[0].message);
+        if (result.data.choices?.[0]) {
+          fixReasoningMessage(result.data.choices[0].message);
+          cleanMessage(result.data.choices[0].message);
+        }
           cache.set(requestedModel, body.messages, body.temperature, result.data);
           recordTokens(key, result.usage);
           res.writeHead(200, { 'Content-Type': 'application/json' });

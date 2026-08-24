@@ -46,3 +46,17 @@ test('clean: full message IS trimmed', () => {
   const { stripThink } = require('../lib/clean');
   assert.strictEqual(stripThink('  привет  '), 'привет');
 });
+
+test('clean: fixReasoningMessage surfaces reasoning when content empty', () => {
+  const { fixReasoningMessage } = require('../lib/clean');
+  const msg = { role: 'assistant', content: '', reasoning: 'The user says hi. Reply friendly.' };
+  fixReasoningMessage(msg);
+  assert.strictEqual(msg.content, 'The user says hi. Reply friendly.');
+});
+
+test('clean: fixReasoningMessage keeps content when present', () => {
+  const { fixReasoningMessage } = require('../lib/clean');
+  const msg = { role: 'assistant', content: 'Hello!', reasoning: 'hidden reasoning' };
+  fixReasoningMessage(msg);
+  assert.strictEqual(msg.content, 'Hello!');
+});
