@@ -62,6 +62,25 @@ test('LRUCache: disk persistence round-trip', () => {
   try { fs2.unlinkSync(path.join(__dirname, '..', 'cache.json')); } catch {}
 });
 
+test('LRUCache: semantic cache hits on normalized similar messages', () => {
+  const { LRUCache } = require('../lib/cache');
+  const c = new LRUCache(10, 60000, true, true); // 4th arg = useNormalize
+  c.set('m', [{ role: 'user', content: 'Привет, как дела?' }], 0, { ok: true });
+  const hit = c.get('m', [{ role: 'user', content: 'привет как дела' }], 0);
+  assert.deepStrictEqual(hit, { ok: true }, 'нормализованные сообщения попадают в кэш');
+});
+
+test('LRUCache: empty normalized text does not collapse distinct requests', () => {
+  const { LRUCache } = require('../lib/cache');
+  const c = new LRUCache(10, 60000, true, true);
+  // Two different user messages whose normalized text is empty (image-only parts)
+  const msgA = [{ role: 'user', content: [{ type: 'image_url', image_url: { url: 'data:image/png;base64,AAA' } }] }];
+  const msgB = [{ role: 'user', content: [{ type: 'image_url', image_url: { url: 'data:image/png;base64,BBB' } }] }];
+  c.set('m', msgA, 0, { answer: 'A' });
+  assert.strictEqual(c.get('m', msgB, 0), null, 'разные image-only запросы не должны попадать в один кэш');
+  assert.deepStrictEqual(c.get('m', msgA, 0), { answer: 'A' });
+});
+
 test('rateLimit: allows under limit, blocks over', () => {
   // reset internal state by using a unique key
   const key = `test-${Date.now()}`;

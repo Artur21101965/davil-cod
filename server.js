@@ -25,7 +25,7 @@ if (stale.length > 0) {
   logger.info('Cleaned stale health entries', { removed: stale });
 }
 
-const cache = new LRUCache(500, 3600000);
+const cache = new LRUCache(500, 3600000, false, true); // 4th arg: semantic normalize ON
 require('./lib/cache')._activeCache = cache;
 
 // Load config (with fallback so a corrupt config never crashes the server)
