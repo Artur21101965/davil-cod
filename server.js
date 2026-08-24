@@ -54,34 +54,25 @@ const healthIntervals = {}; // key -> { nextCheck, backoff }
 async function checkProvider(key, provider) {
   initHealth(key);
   const start = Date.now();
-  const dailyLimit = provider.dailyLimit || 1000;
-  // Providers with tight daily limits (e.g. 40-50) would burn quota on probes.
-  // Use a cheap /models GET for them; real latency probe for generous ones.
-  const cheap = dailyLimit < 100;
+  // CRITICAL: always use cheap /models GET for health checks. Sending real LLM
+  // requests just to "check health" burns provider daily request limits (Groq
+  // limits by requests/day, not tokens). 18 providers × every 5 min = 288
+  // wasted requests/day. Real latency comes from actual user requests instead.
   try {
-    const body = cheap ? null : JSON.stringify({
-      model: provider.model,
-      messages: [{ role: 'user', content: 'hi' }],
-      max_tokens: 1,
-    });
-    const url = cheap ? provider.endpoint.replace('/chat/completions', '/models') : provider.endpoint;
+    const url = provider.endpoint.replace('/chat/completions', '/models');
     const res = await fetch(url, {
-      method: body ? 'POST' : 'GET',
+      method: 'GET',
       headers: {
-        ...(body ? { 'Content-Type': 'application/json' } : {}),
         'Authorization': `Bearer ${provider.apiKey}`,
       },
-      body,
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(10000),
     });
     const latency = Date.now() - start;
     if (res.ok) {
       recordSuccess(key);
       getHealth()[key].status = 'up';
-      // Only record latency for real generation probes (non-cheap). /models GET
-      // latency (30-100ms) does not reflect generation speed and would wrongly
-      // dominate the weighted selection.
-      if (!cheap) getHealth()[key].latency = latency;
+      // Do NOT record /models latency as generation speed (it's 30-100ms, not
+      // representative). Keep existing real latency from actual requests.
       getHealth()[key].lastCheck = Date.now();
       healthIntervals[key] = { nextCheck: Date.now() + 300000, backoff: 60000 };
       return true;
