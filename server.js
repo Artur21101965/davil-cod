@@ -123,8 +123,20 @@ setTimeout(healthCheck, 1000);
 // Chat completion handler
 async function handleChatCompletion(req, res, body) {
   const requestedModel = body.model || 'tier-splus';
-  const targetProviderKey = MODEL_MAP[requestedModel] || 'zai';
+  let targetProviderKey = MODEL_MAP[requestedModel] || 'zai';
   const isStreaming = body.stream === true;
+
+  // Vision detection: if the request contains images, route to a vision provider
+  const hasImage = Array.isArray(body.messages) && body.messages.some((m) => {
+    if (Array.isArray(m.content)) {
+      return m.content.some((c) => c && (c.type === 'image_url' || c.type === 'image'));
+    }
+    return false;
+  });
+  if (hasImage) {
+    targetProviderKey = 'gemini-vision';
+    logger.info('Vision request detected', { model: requestedModel, target: targetProviderKey });
+  }
 
   // Check cache (works for both streaming and non-streaming)
   const cached = cache.get(requestedModel, body.messages, body.temperature);

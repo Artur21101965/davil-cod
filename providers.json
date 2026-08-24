@@ -143,5 +143,25 @@
     "keyHint": "openrouter.ai → Keys (Laguna S: кодинг, 118B)",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
     "free": true
+  },
+  "gemini-vision": {
+    "endpoint": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    "model": "gemini-3.6-flash",
+    "priority": 5,
+    "dailyLimit": 1500,
+    "keyHint": "aistudio.google.com → Get API key (vision: работает со скриншотами)",
+    "envVar": "PROVIDER_GEMINI_APIKEY",
+    "free": true,
+    "vision": true
+  },
+  "nim-vision": {
+    "endpoint": "https://integrate.api.nvidia.com/v1/chat/completions",
+    "model": "meta/llama-3.2-11b-vision-instruct",
+    "priority": 16,
+    "dailyLimit": 40,
+    "keyHint": "build.nvidia.com → Get API key (vision)",
+    "envVar": "PROVIDER_NIM_APIKEY",
+    "free": true,
+    "vision": true
   }
 }

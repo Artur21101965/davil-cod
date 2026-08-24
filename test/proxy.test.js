@@ -108,6 +108,14 @@ test('providers: catalog providers are enabled by default', () => {
   assert.ok(enabled.length >= 10, 'at least 10 providers enabled by default');
 });
 
+test('providers: catalog has vision-capable providers for screenshots', () => {
+  const { PROVIDERS } = require('../lib/providers');
+  const vision = Object.entries(PROVIDERS).filter(([_, p]) => p.vision === true);
+  assert.ok(vision.length >= 2, 'at least 2 vision providers (gemini-vision, nim-vision)');
+  const names = vision.map(([k]) => k).join(', ');
+  assert.ok(names.includes('gemini-vision'), 'gemini-vision present');
+});
+
 test('health: 404 opens circuit breaker long (model unavailable for account)', () => {
   const health = require('../lib/health');
   const key = `cb404-${Date.now()}`;
