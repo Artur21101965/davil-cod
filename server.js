@@ -130,10 +130,22 @@ async function handleChatCompletion(req, res, body) {
   //            text as context — so a coding model handles the fix, not vision.
   const hasImage = Array.isArray(body.messages) && body.messages.some((m) => {
     if (Array.isArray(m.content)) {
-      return m.content.some((c) => c && (c.type === 'image_url' || c.type === 'image'));
+      return m.content.some((c) => c && (c.type === 'image_url' || c.type === 'image' || c.type === 'file' || c.type === 'input_image'));
     }
     return false;
   });
+  // Debug: log raw message keys if any mention image/attachment/file
+  if (!hasImage && Array.isArray(body.messages)) {
+    for (const m of body.messages) {
+      if (m && typeof m === 'object' && (m.image || m.attachments || m.file || (Array.isArray(m.content) && m.content.some(c => c && c.image)))) {
+        logger.info('Vision debug: обнаружено изображение в другом формате', {
+          keys: Object.keys(m).slice(0, 8),
+          contentTypes: Array.isArray(m.content) ? m.content.map(c => c && c.type) : null,
+        });
+        break;
+      }
+    }
+  }
   if (hasImage) {
     // Two-stage pipeline: try vision providers in order until one extracts text.
     const visionChain = ['gemini-vision', 'nim-vision', 'deepseek-vision']
@@ -530,7 +542,16 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (parsedUrl.pathname === '/v1/models') {
-    const models = Object.entries(PROVIDERS).filter(([_, p]) => p.enabled).map(([key, p]) => ({ id: p.model, object: 'model', owned_by: key }));
+    const models = Object.entries(PROVIDERS)
+      .filter(([_, p]) => p.enabled)
+      .map(([key, p]) => ({
+        id: p.model,
+        object: 'model',
+        owned_by: key,
+        category: p.category || 'general',
+        vision: p.vision === true,
+        latency_ms: getHealth()[key]?.latency || null,
+      }));
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ object: 'list', data: models }));
     return;
