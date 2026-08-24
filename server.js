@@ -123,7 +123,11 @@ async function handleChatCompletion(req, res, body) {
   let targetProviderKey = MODEL_MAP[requestedModel] || 'zai';
   const isStreaming = body.stream === true;
 
-  // Vision detection: if the request contains images, route to a vision provider
+  // Vision detection: if the request contains images, route to a vision provider.
+  // TWO-STAGE pipeline:
+  //   Stage 1: vision model reads the screenshot, extracts text/description.
+  //   Stage 2: the requested (coding/general) model answers using the extracted
+  //            text as context — so a coding model handles the fix, not vision.
   const hasImage = Array.isArray(body.messages) && body.messages.some((m) => {
     if (Array.isArray(m.content)) {
       return m.content.some((c) => c && (c.type === 'image_url' || c.type === 'image'));
@@ -131,8 +135,50 @@ async function handleChatCompletion(req, res, body) {
     return false;
   });
   if (hasImage) {
-    targetProviderKey = 'gemini-vision';
-    logger.info('Vision request detected', { model: requestedModel, target: targetProviderKey });
+    // Two-stage pipeline: try vision providers in order until one extracts text.
+    const visionChain = ['gemini-vision', 'nim-vision', 'deepseek-vision']
+      .map((k) => PROVIDERS[k])
+      .filter((p) => p && p.enabled);
+    if (visionChain.length > 0) {
+      logger.info('Vision pipeline: распознаю скриншот', { chain: visionChain.map(p => p.key).join(',') });
+      let extracted = '';
+      for (const visionProvider of visionChain) {
+        try {
+          const visionBody = {
+            model: visionProvider.model,
+            messages: [{
+              role: 'user',
+              content: [
+                { type: 'text', text: 'Распознай и извлеки ВЕСЬ текст с изображения (ошибка, код, сообщение). Верни только содержимое, без комментариев. Если это код — верни код как есть.' },
+                ...(Array.isArray(body.messages) ? body.messages.flatMap((m) => (Array.isArray(m.content) ? m.content.filter((c) => c.type === 'image_url' || c.type === 'image') : [])) : []),
+              ],
+            }],
+            max_tokens: 2000,
+          };
+          const visionRes = await callProvider(visionProvider, visionBody);
+          extracted = visionRes.data?.choices?.[0]?.message?.content || visionRes.data?.choices?.[0]?.message?.reasoning || '';
+          if (extracted) { logger.info('Vision pipeline: распознал ' + visionProvider.key); break; }
+        } catch (err) {
+          logger.warn('Vision pipeline: ' + visionProvider.key + ' не сработал', { error: err.message.slice(0, 80) });
+        }
+      }
+      const cleaned = stripThink(extracted, true);
+      logger.info('Vision pipeline: скриншот распознан', { chars: cleaned.length });
+      if (cleaned) {
+        // Replace image content with the extracted text as context,
+        // so the coding/general model (not vision) answers the question.
+        const userMsgs = Array.isArray(body.messages) ? body.messages : [];
+        body = {
+          ...body,
+          messages: userMsgs.map((m) => {
+            if (Array.isArray(m.content) && m.content.some((c) => c.type === 'image_url' || c.type === 'image')) {
+              return { role: 'user', content: `${m.content.find((c) => c.type === 'text')?.text || ''}\n\n[Содержимое скриншота]\n${cleaned}` };
+            }
+            return m;
+          }),
+        };
+      }
+    }
   }
 
   // Check cache (works for both streaming and non-streaming)

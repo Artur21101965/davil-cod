@@ -4,248 +4,295 @@
     "model": "openai/gpt-oss-120b",
     "priority": 1,
     "dailyLimit": 1000,
-    "keyHint": "console.groq.com → API Keys",
+    "keyHint": "console.groq.com \u2192 API Keys",
     "envVar": "PROVIDER_GROQ_APIKEY",
-    "free": true
+    "free": true,
+    "category": "general"
   },
   "groq-qwen": {
     "endpoint": "https://api.groq.com/openai/v1/chat/completions",
     "model": "qwen/qwen3.6-27b",
     "priority": 2,
     "dailyLimit": 1000,
-    "keyHint": "console.groq.com → API Keys",
+    "keyHint": "console.groq.com \u2192 API Keys",
     "envVar": "PROVIDER_GROQ_APIKEY",
-    "free": true
+    "free": true,
+    "category": "general"
+  },
+  "groq-allam": {
+    "endpoint": "https://api.groq.com/openai/v1/chat/completions",
+    "model": "allam-2-7b",
+    "priority": 3,
+    "dailyLimit": 1000,
+    "keyHint": "console.groq.com \u2192 API Keys (allam-2-7b, \u043e\u0447\u0435\u043d\u044c \u0431\u044b\u0441\u0442\u0440\u0430\u044f 229ms)",
+    "envVar": "PROVIDER_GROQ_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "groq-compound": {
+    "endpoint": "https://api.groq.com/openai/v1/chat/completions",
+    "model": "groq/compound",
+    "priority": 12,
+    "dailyLimit": 1000,
+    "keyHint": "console.groq.com \u2192 API Keys (compound)",
+    "envVar": "PROVIDER_GROQ_APIKEY",
+    "free": true,
+    "category": "general"
   },
   "mistral-codestral": {
     "endpoint": "https://api.mistral.ai/v1/chat/completions",
     "model": "codestral-latest",
     "priority": 3,
     "dailyLimit": 500000,
-    "keyHint": "console.mistral.ai → API Keys",
+    "keyHint": "console.mistral.ai \u2192 API Keys",
     "envVar": "PROVIDER_MISTRAL_APIKEY",
-    "free": true
+    "free": true,
+    "category": "coding"
   },
   "mistral-small": {
     "endpoint": "https://api.mistral.ai/v1/chat/completions",
     "model": "mistral-small-latest",
     "priority": 4,
     "dailyLimit": 500000,
-    "keyHint": "console.mistral.ai → API Keys",
+    "keyHint": "console.mistral.ai \u2192 API Keys",
     "envVar": "PROVIDER_MISTRAL_APIKEY",
-    "free": true
+    "free": true,
+    "category": "general"
   },
   "gemini-flash": {
     "endpoint": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
     "model": "gemini-3.6-flash",
     "priority": 5,
     "dailyLimit": 1500,
-    "keyHint": "aistudio.google.com → Get API key",
+    "keyHint": "aistudio.google.com \u2192 Get API key",
     "envVar": "PROVIDER_GEMINI_APIKEY",
-    "free": true
+    "free": true,
+    "category": "general"
   },
   "nim-deepseek": {
     "endpoint": "https://integrate.api.nvidia.com/v1/chat/completions",
     "model": "deepseek-ai/deepseek-v4-flash-0731",
     "priority": 6,
     "dailyLimit": 40,
-    "keyHint": "build.nvidia.com → Get API key",
+    "keyHint": "build.nvidia.com \u2192 Get API key",
     "envVar": "PROVIDER_NIM_APIKEY",
-    "free": true
+    "free": true,
+    "category": "general"
   },
   "nim-llama": {
     "endpoint": "https://integrate.api.nvidia.com/v1/chat/completions",
     "model": "meta/llama-3.1-8b-instruct",
     "priority": 7,
     "dailyLimit": 40,
-    "keyHint": "build.nvidia.com → Get API key",
+    "keyHint": "build.nvidia.com \u2192 Get API key",
     "envVar": "PROVIDER_NIM_APIKEY",
-    "free": true
+    "free": true,
+    "category": "general"
   },
   "zai": {
     "endpoint": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
     "model": "glm-4.7-flash",
     "priority": 8,
     "dailyLimit": 1000,
-    "keyHint": "open.bigmodel.cn → API Keys",
+    "keyHint": "open.bigmodel.cn \u2192 API Keys",
     "envVar": "PROVIDER_ZAI_APIKEY",
-    "free": true
+    "free": true,
+    "category": "general"
   },
   "openrouter-hermes": {
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
     "model": "cohere/north-mini-code:free",
     "priority": 17,
     "dailyLimit": 50,
-    "keyHint": "openrouter.ai → Keys (медленный, запасной)",
+    "keyHint": "openrouter.ai \u2192 Keys (\u043c\u0435\u0434\u043b\u0435\u043d\u043d\u044b\u0439, \u0437\u0430\u043f\u0430\u0441\u043d\u043e\u0439)",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
-    "free": true
+    "free": true,
+    "category": "coding"
   },
   "openrouter-mistral": {
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
     "model": "z-ai/glm-5.2:free",
     "priority": 10,
     "dailyLimit": 50,
-    "keyHint": "openrouter.ai → Keys",
+    "keyHint": "openrouter.ai \u2192 Keys",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
-    "free": true
+    "free": true,
+    "category": "general"
   },
   "or-nemotron-550b": {
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
     "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
     "priority": 11,
     "dailyLimit": 50,
-    "keyHint": "openrouter.ai → Keys",
+    "keyHint": "openrouter.ai \u2192 Keys",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
-    "free": true
+    "free": true,
+    "category": "reasoning"
   },
   "or-nemotron-120b": {
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
     "model": "nvidia/nemotron-3-super-120b-a12b:free",
     "priority": 12,
     "dailyLimit": 50,
-    "keyHint": "openrouter.ai → Keys",
+    "keyHint": "openrouter.ai \u2192 Keys",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
-    "free": true
+    "free": true,
+    "category": "reasoning"
   },
   "or-gpt-oss-20b": {
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
     "model": "openai/gpt-oss-20b:free",
     "priority": 13,
     "dailyLimit": 50,
-    "keyHint": "openrouter.ai → Keys",
+    "keyHint": "openrouter.ai \u2192 Keys",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
-    "free": true
+    "free": true,
+    "category": "general"
   },
   "or-ox-alpha": {
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
     "model": "stealth/ox-alpha",
     "priority": 3,
     "dailyLimit": 100,
-    "keyHint": "openrouter.ai → Keys (Ox Alpha: 1M контекст, reasoning, бесплатно)",
+    "keyHint": "openrouter.ai \u2192 Keys (Ox Alpha: 1M \u043a\u043e\u043d\u0442\u0435\u043a\u0441\u0442, reasoning, \u0431\u0435\u0441\u043f\u043b\u0430\u0442\u043d\u043e)",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
     "free": true,
-    "reasoning": true
+    "reasoning": true,
+    "category": "reasoning"
   },
   "or-nemotron-35": {
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
     "model": "nvidia/nemotron-3.5-lightning:free",
     "priority": 14,
     "dailyLimit": 100,
-    "keyHint": "openrouter.ai → Keys (Nemotron 3.5 Lightning: 977K контекст)",
+    "keyHint": "openrouter.ai \u2192 Keys (Nemotron 3.5 Lightning: 977K \u043a\u043e\u043d\u0442\u0435\u043a\u0441\u0442)",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
-    "free": true
+    "free": true,
+    "category": "reasoning"
   },
   "or-laguna-s": {
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
     "model": "poolside/laguna-s-2.1:free",
     "priority": 15,
     "dailyLimit": 100,
-    "keyHint": "openrouter.ai → Keys (Laguna S: кодинг, 118B)",
+    "keyHint": "openrouter.ai \u2192 Keys (Laguna S: \u043a\u043e\u0434\u0438\u043d\u0433, 118B)",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
-    "free": true
+    "free": true,
+    "category": "coding"
   },
   "gemini-vision": {
     "endpoint": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
     "model": "gemini-3.6-flash",
     "priority": 5,
     "dailyLimit": 1500,
-    "keyHint": "aistudio.google.com → Get API key (vision: работает со скриншотами)",
+    "keyHint": "aistudio.google.com \u2192 Get API key (vision: \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442 \u0441\u043e \u0441\u043a\u0440\u0438\u043d\u0448\u043e\u0442\u0430\u043c\u0438)",
     "envVar": "PROVIDER_GEMINI_APIKEY",
     "free": true,
-    "vision": true
+    "vision": true,
+    "category": "vision"
   },
   "nim-vision": {
     "endpoint": "https://integrate.api.nvidia.com/v1/chat/completions",
     "model": "meta/llama-3.2-11b-vision-instruct",
     "priority": 18,
     "dailyLimit": 40,
-    "keyHint": "build.nvidia.com → Get API key (vision, медленный, запасной)",
+    "keyHint": "build.nvidia.com \u2192 Get API key (vision, \u043c\u0435\u0434\u043b\u0435\u043d\u043d\u044b\u0439, \u0437\u0430\u043f\u0430\u0441\u043d\u043e\u0439)",
     "envVar": "PROVIDER_NIM_APIKEY",
     "free": true,
-    "vision": true
+    "vision": true,
+    "category": "vision"
   },
   "ollama": {
     "endpoint": "http://localhost:11434/v1/chat/completions",
     "model": "qwen2.5:0.5b",
     "priority": 17,
     "dailyLimit": 100000,
-    "keyHint": "Локальная модель. Установи Ollama и скачай модель: ollama pull qwen2.5:0.5b (без ключа, безлимит, приватно)",
+    "keyHint": "\u041b\u043e\u043a\u0430\u043b\u044c\u043d\u0430\u044f \u043c\u043e\u0434\u0435\u043b\u044c. \u0423\u0441\u0442\u0430\u043d\u043e\u0432\u0438 Ollama \u0438 \u0441\u043a\u0430\u0447\u0430\u0439 \u043c\u043e\u0434\u0435\u043b\u044c: ollama pull qwen2.5:0.5b (\u0431\u0435\u0437 \u043a\u043b\u044e\u0447\u0430, \u0431\u0435\u0437\u043b\u0438\u043c\u0438\u0442, \u043f\u0440\u0438\u0432\u0430\u0442\u043d\u043e)",
     "envVar": "",
     "free": true,
-    "local": true
+    "local": true,
+    "category": "local"
   },
   "lmstudio": {
     "endpoint": "http://localhost:1234/v1/chat/completions",
     "model": "local-model",
     "priority": 18,
     "dailyLimit": 100000,
-    "keyHint": "Локальная модель. Установи LM Studio и загрузи модель (без ключа, безлимит)",
+    "keyHint": "\u041b\u043e\u043a\u0430\u043b\u044c\u043d\u0430\u044f \u043c\u043e\u0434\u0435\u043b\u044c. \u0423\u0441\u0442\u0430\u043d\u043e\u0432\u0438 LM Studio \u0438 \u0437\u0430\u0433\u0440\u0443\u0437\u0438 \u043c\u043e\u0434\u0435\u043b\u044c (\u0431\u0435\u0437 \u043a\u043b\u044e\u0447\u0430, \u0431\u0435\u0437\u043b\u0438\u043c\u0438\u0442)",
     "envVar": "",
     "free": true,
-    "local": true
+    "local": true,
+    "category": "local"
   },
   "cerebras-gpt": {
     "endpoint": "https://api.cerebras.ai/v1/chat/completions",
     "model": "gpt-oss-120b",
     "priority": 2,
     "dailyLimit": 1000,
-    "keyHint": "cloud.cerebras.ai → API Keys (gpt-oss-120b, очень быстрая)",
+    "keyHint": "cloud.cerebras.ai \u2192 API Keys (gpt-oss-120b, \u043e\u0447\u0435\u043d\u044c \u0431\u044b\u0441\u0442\u0440\u0430\u044f)",
     "envVar": "PROVIDER_CEREBRAS_APIKEY",
-    "free": true
+    "free": true,
+    "category": "general"
   },
   "cerebras-gemma": {
     "endpoint": "https://api.cerebras.ai/v1/chat/completions",
     "model": "gemma-4-31b",
     "priority": 8,
     "dailyLimit": 1000,
-    "keyHint": "cloud.cerebras.ai → API Keys (gemma-4-31b)",
+    "keyHint": "cloud.cerebras.ai \u2192 API Keys (gemma-4-31b)",
     "envVar": "PROVIDER_CEREBRAS_APIKEY",
-    "free": true
+    "free": true,
+    "category": "general"
   },
   "deepseek": {
     "endpoint": "https://api.deepseek.com/chat/completions",
     "model": "deepseek-v4-flash",
     "priority": 4,
     "dailyLimit": 1000,
-    "keyHint": "platform.deepseek.com → API Keys (deepseek-v4-flash)",
+    "keyHint": "platform.deepseek.com \u2192 API Keys (deepseek-v4-flash)",
     "envVar": "PROVIDER_DEEPSEEK_APIKEY",
-    "free": true
+    "free": true,
+    "category": "general"
   },
   "deepseek-vision": {
     "endpoint": "https://api.deepseek.com/chat/completions",
     "model": "deepseek-v4-flash-vision-exp",
     "priority": 14,
     "dailyLimit": 1000,
-    "keyHint": "platform.deepseek.com → API Keys (vision)",
+    "keyHint": "platform.deepseek.com \u2192 API Keys (vision)",
     "envVar": "PROVIDER_DEEPSEEK_APIKEY",
     "free": true,
-    "vision": true
+    "vision": true,
+    "category": "vision"
   },
   "or-dots-3": {
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
     "model": "dots-studio/dots-3-note-preview:free",
     "priority": 19,
     "dailyLimit": 50,
-    "keyHint": "openrouter.ai → Keys (Dots 3: 280B MoE, мощная)",
+    "keyHint": "openrouter.ai \u2192 Keys (Dots 3: 280B MoE, \u043c\u043e\u0449\u043d\u0430\u044f)",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
-    "free": true
+    "free": true,
+    "category": "reasoning"
   },
   "or-lfm": {
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
     "model": "liquid/lfm-2.5-2.6b:free",
     "priority": 20,
     "dailyLimit": 50,
-    "keyHint": "openrouter.ai → Keys (LFM 2.5: быстрая reasoning)",
+    "keyHint": "openrouter.ai \u2192 Keys (LFM 2.5: \u0431\u044b\u0441\u0442\u0440\u0430\u044f reasoning)",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
-    "free": true
+    "free": true,
+    "category": "reasoning"
   },
   "or-laguna-xs": {
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
     "model": "poolside/laguna-xs-2.1:free",
     "priority": 21,
     "dailyLimit": 50,
-    "keyHint": "openrouter.ai → Keys (Laguna XS: кодинг)",
+    "keyHint": "openrouter.ai \u2192 Keys (Laguna XS: \u043a\u043e\u0434\u0438\u043d\u0433)",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
-    "free": true
+    "free": true,
+    "category": "coding"
   }
 }
