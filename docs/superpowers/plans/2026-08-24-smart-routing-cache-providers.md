@@ -513,9 +513,9 @@ Modify `lib/providers.js` prefix map (line 72) to include HF:
   const prefixMap = { OR: 'OPENROUTER', NIM: 'NIM', GROQ: 'GROQ', MISTRAL: 'MISTRAL', GEMINI: 'GEMINI', ZAI: 'ZAI', HF: 'HF' };
 ```
 
-The HF token already exists in `tools/.env` (`HF_TOKEN=REPLACED_HF_TOKEN`). Copy it into `llm-proxy/.env` so the proxy can use it:
+The HF token already exists in `tools/.env` (`HF_TOKEN=...`). Copy it into `llm-proxy/.env` so the proxy can use it:
 ```bash
-echo "PROVIDER_HF_APIKEY=REPLACED_HF_TOKEN" >> /Users/sid/.config/opencode/llm-proxy/.env
+echo "PROVIDER_HF_APIKEY=<ваш-HF-токен>" >> /Users/sid/.config/opencode/llm-proxy/.env
 ```
 
 - [ ] **Step 5: Run tests to verify pass**
