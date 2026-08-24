@@ -89,9 +89,13 @@ async function checkProvider(key, provider) {
     throw new Error(`HTTP ${res.status}`);
   } catch (err) {
     const latency = Date.now() - start;
-    getHealth()[key].status = 'error';
+    const is429 = String(err.message).includes('429');
+    // 429 = temporary rate limit (provider is alive, just limited). Don't mark it
+    // as dead — it will recover when the limit resets. Keep it visible to clients.
+    getHealth()[key].status = is429 ? 'ratelimited' : 'error';
     getHealth()[key].latency = latency;
-    getHealth()[key].score = Math.max(0, (getHealth()[key].score ?? 50) - 5);
+    getHealth()[key].reason = is429 ? 'лимит провайдера (429)' : 'не отвечает';
+    getHealth()[key].score = Math.max(0, (getHealth()[key].score ?? 50) - (is429 ? 2 : 5));
     recordFailure(key);
     // 404 means the model/function isn't available for this account — auto-disable
     // so we stop probing it forever. Re-enable by setting enabled:true in config.
@@ -161,8 +165,11 @@ async function handleChatCompletion(req, res, body) {
 
   // Weighted selection among healthy providers
   const today = new Date().toISOString().slice(0, 10);
+  // 'ratelimited' providers are alive but temporarily limited — include them
+  // (weighted down) so the pool never looks empty when many limits are hot.
   const healthyProviders = Object.entries(PROVIDERS)
-    .filter(([_, p]) => p.enabled && !isCircuitOpen(p.key) && getHealth()[p.key]?.status === 'up');
+    .filter(([_, p]) => p.enabled && !isCircuitOpen(p.key) &&
+      (getHealth()[p.key]?.status === 'up' || getHealth()[p.key]?.status === 'ratelimited'));
 
   // Prefer providers below 90% of their daily limit; only fall back to
   // near-exhausted ones if that leaves nothing (avoids avoidable 429s).
@@ -184,6 +191,8 @@ async function handleChatCompletion(req, res, body) {
       const rawLat = h.latency || 0;
       const lat = rawLat > 0 ? Math.max(rawLat, 100) : 500;
       let weight = score / lat;
+      // Rate-limited providers are last resort — heavy penalty
+      if (h.status === 'ratelimited') weight *= 0.05;
       if (key === targetProviderKey) weight *= 2;
       const dailyLimit = provider.dailyLimit || 1000;
       const usedToday = getStats().providerUsage[key] || 0;
