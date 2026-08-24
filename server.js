@@ -251,7 +251,9 @@ async function handleChatCompletion(req, res, body) {
         release();
       }
       initHealth(key);
-      getHealth()[key].latency = result.latency;
+      // Cap recorded latency — values >60s mean the request hung, not real
+      // provider speed. Huge latency would poison the weighted selection.
+      getHealth()[key].latency = Math.min(result.latency || 0, 60000);
       getHealth()[key].lastCheck = Date.now();
       recordSuccess(key);
       recordRequest(key, true);
