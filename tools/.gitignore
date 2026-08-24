@@ -2,3 +2,4 @@
 output/
 *.mp4
 __pycache__/
+.env

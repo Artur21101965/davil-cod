@@ -41,7 +41,17 @@ def load_client(space):
     from gradio_client import Client
     # HF-токен повышает лимит ZeroGPU (бесплатно). Получить:
     # https://huggingface.co/settings/tokens → Create token → Read
+    # Источники: env HF_TOKEN или локальный tools/.env
     hf_token = os.environ.get("HF_TOKEN", "")
+    if not hf_token:
+        env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+        try:
+            for line in open(env_path):
+                if line.strip().startswith("HF_TOKEN="):
+                    hf_token = line.strip().split("=", 1)[1].strip()
+                    break
+        except Exception:
+            pass
     if hf_token:
         return Client(space, verbose=False, token=hf_token)
     return Client(space, verbose=False)
