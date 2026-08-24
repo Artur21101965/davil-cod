@@ -184,6 +184,43 @@
     "free": true,
     "local": true
   },
+  "cerebras-gpt": {
+    "endpoint": "https://api.cerebras.ai/v1/chat/completions",
+    "model": "gpt-oss-120b",
+    "priority": 2,
+    "dailyLimit": 1000,
+    "keyHint": "cloud.cerebras.ai → API Keys (gpt-oss-120b, очень быстрая)",
+    "envVar": "PROVIDER_CEREBRAS_APIKEY",
+    "free": true
+  },
+  "cerebras-gemma": {
+    "endpoint": "https://api.cerebras.ai/v1/chat/completions",
+    "model": "gemma-4-31b",
+    "priority": 8,
+    "dailyLimit": 1000,
+    "keyHint": "cloud.cerebras.ai → API Keys (gemma-4-31b)",
+    "envVar": "PROVIDER_CEREBRAS_APIKEY",
+    "free": true
+  },
+  "deepseek": {
+    "endpoint": "https://api.deepseek.com/chat/completions",
+    "model": "deepseek-v4-flash",
+    "priority": 4,
+    "dailyLimit": 1000,
+    "keyHint": "platform.deepseek.com → API Keys (deepseek-v4-flash)",
+    "envVar": "PROVIDER_DEEPSEEK_APIKEY",
+    "free": true
+  },
+  "deepseek-vision": {
+    "endpoint": "https://api.deepseek.com/chat/completions",
+    "model": "deepseek-v4-flash-vision-exp",
+    "priority": 14,
+    "dailyLimit": 1000,
+    "keyHint": "platform.deepseek.com → API Keys (vision)",
+    "envVar": "PROVIDER_DEEPSEEK_APIKEY",
+    "free": true,
+    "vision": true
+  },
   "or-dots-3": {
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
     "model": "dots-studio/dots-3-note-preview:free",

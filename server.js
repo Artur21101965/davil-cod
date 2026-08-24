@@ -223,7 +223,11 @@ async function handleChatCompletion(req, res, body) {
   // The requested model's mapped provider MUST be tried first — even for
   // tier aliases. Without this, weighted selection may route the agent to a
   // slow/empty-streaming provider (e.g. Nemotron-120b) instead of the fast one.
-  if (MODEL_MAP[requestedModel]) {
+  if (MODEL_MAP[requestedModel] && PROVIDERS[targetProviderKey]) {
+    // Ensure the target provider is in the candidate list at all
+    if (!enabledProviders.some(([k]) => k === targetProviderKey)) {
+      enabledProviders.unshift([targetProviderKey, PROVIDERS[targetProviderKey]]);
+    }
     const targetIdx = enabledProviders.findIndex(([k]) => k === targetProviderKey);
     if (targetIdx > 0) {
       const [t] = enabledProviders.splice(targetIdx, 1);
