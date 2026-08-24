@@ -220,9 +220,10 @@ async function handleChatCompletion(req, res, body) {
     Object.entries(PROVIDERS).filter(([_, p]) => p.enabled)
       .sort((a, b) => (getHealth()[b[0]]?.score || 50) - (getHealth()[a[0]]?.score || 50));
 
-  // If the client explicitly asked for a specific model (not a tier alias),
-  // that provider MUST be tried first — not out-weighed by others.
-  if (MODEL_MAP[requestedModel] && !requestedModel.startsWith('tier')) {
+  // The requested model's mapped provider MUST be tried first — even for
+  // tier aliases. Without this, weighted selection may route the agent to a
+  // slow/empty-streaming provider (e.g. Nemotron-120b) instead of the fast one.
+  if (MODEL_MAP[requestedModel]) {
     const targetIdx = enabledProviders.findIndex(([k]) => k === targetProviderKey);
     if (targetIdx > 0) {
       const [t] = enabledProviders.splice(targetIdx, 1);
