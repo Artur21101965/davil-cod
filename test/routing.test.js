@@ -17,9 +17,9 @@ test('routing: error/fix request scores high', () => {
   assert.ok(score > 0.5, `expected >0.5, got ${score}`);
 });
 
-test('routing: empty content scores low', () => {
+test('routing: empty content scores zero', () => {
   const score = classifyComplexity([{ role: 'user', content: '' }]);
-  assert.ok(score >= 0 && score <= 1);
+  assert.strictEqual(score, 0);
 });
 
 test('routing: maybeUpgradeTier keeps simple requests on light tier', () => {
@@ -29,7 +29,7 @@ test('routing: maybeUpgradeTier keeps simple requests on light tier', () => {
 
 test('routing: maybeUpgradeTier upgrades complex requests from tier-s', () => {
   const upgraded = maybeUpgradeTier('tier-s', 0.9);
-  assert.notStrictEqual(upgraded, 'tier-s');
+  assert.strictEqual(upgraded, 'tier-splus');
 });
 
 test('routing: maybeUpgradeTier does not downgrade heavy tiers', () => {
