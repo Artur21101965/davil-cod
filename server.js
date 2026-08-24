@@ -64,7 +64,7 @@ async function checkProvider(key, provider) {
     const res = await fetch(url, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${provider.apiKey}`,
+        ...(provider.apiKey ? { 'Authorization': `Bearer ${provider.apiKey}` } : {}),
       },
       signal: AbortSignal.timeout(10000),
     });
@@ -518,6 +518,57 @@ const server = http.createServer(async (req, res) => {
   if (parsedUrl.pathname === '/v1/rpm') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ data: getRpm() }));
+    return;
+  }
+
+  // POST /v1/shorts — generate a vertical short video via the tools generator.
+  // Body: { prompt, duration?, format? ("9:16"/"16:9"/"1:1"), steps? }
+  if (parsedUrl.pathname === '/v1/shorts' && req.method === 'POST') {
+    if (AUTH_KEY) {
+      const apiKey = (req.headers.authorization || '').replace('Bearer ', '').trim();
+      if (apiKey !== AUTH_KEY) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'Invalid API key' } }));
+        return;
+      }
+    }
+    let body = '';
+    req.on('data', (c) => body += c);
+    req.on('end', async () => {
+      try {
+        const params = JSON.parse(body);
+        if (!params.prompt) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: 'prompt is required' } }));
+          return;
+        }
+        const { execFile } = require('child_process');
+        const toolsDir = path.join(__dirname, 'tools');
+        const py = path.join(toolsDir, '.venv', 'bin', 'python');
+        const script = path.join(toolsDir, 'generate_shorts.py');
+        const args = [script, params.prompt];
+        if (params.duration) args.push('--duration', String(params.duration));
+        if (params.format) args.push('--format', params.format);
+        if (params.steps) args.push('--steps', String(params.steps));
+        logger.info('Shorts generation requested', { prompt: params.prompt.slice(0, 60) });
+        execFile(py, args, { cwd: toolsDir, timeout: 600000, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+          if (err) {
+            logger.error('Shorts generation failed', { error: err.message, stderr: String(stderr).slice(0, 300) });
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: { message: 'Generation failed: ' + err.message, detail: String(stderr).slice(0, 300) } }));
+            return;
+          }
+          // Parse output dir from stdout ("Готово: N видео" + paths)
+          const paths = String(stdout).match(/\.mp4/g) ? String(stdout).split('\n').filter(l => l.trim().endsWith('.mp4')).map(l => l.trim()) : [];
+          const files = paths.filter(p => p.endsWith('.mp4'));
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, files, stdout: String(stdout).slice(0, 2000) }));
+        });
+      } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'Invalid request: ' + e.message } }));
+      }
+    });
     return;
   }
 

@@ -153,12 +153,15 @@ test('providers: request validation rejects empty messages', () => {
   const fs = require('fs');
   const path = require('path');
   const catalog = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'providers.json'), 'utf8'));
-  // Every catalog provider must have the fields the proxy relies on
+  // Every catalog provider must have the fields the proxy relies on.
+  // Local providers (ollama, lmstudio) need no API key → no envVar.
   for (const [name, p] of Object.entries(catalog)) {
     assert.ok(p.endpoint, name + ' has endpoint');
     assert.ok(p.model, name + ' has model');
-    assert.ok(p.envVar, name + ' has envVar');
     assert.ok(p.dailyLimit, name + ' has dailyLimit');
+    if (!p.local) {
+      assert.ok(p.envVar, name + ' has envVar');
+    }
   }
 });
 

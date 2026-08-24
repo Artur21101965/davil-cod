@@ -163,5 +163,25 @@
     "envVar": "PROVIDER_NIM_APIKEY",
     "free": true,
     "vision": true
+  },
+  "ollama": {
+    "endpoint": "http://localhost:11434/v1/chat/completions",
+    "model": "qwen2.5:0.5b",
+    "priority": 17,
+    "dailyLimit": 100000,
+    "keyHint": "Локальная модель. Установи Ollama и скачай модель: ollama pull qwen2.5:0.5b (без ключа, безлимит, приватно)",
+    "envVar": "",
+    "free": true,
+    "local": true
+  },
+  "lmstudio": {
+    "endpoint": "http://localhost:1234/v1/chat/completions",
+    "model": "local-model",
+    "priority": 18,
+    "dailyLimit": 100000,
+    "keyHint": "Локальная модель. Установи LM Studio и загрузи модель (без ключа, безлимит)",
+    "envVar": "",
+    "free": true,
+    "local": true
   }
 }
