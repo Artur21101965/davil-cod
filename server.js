@@ -190,9 +190,13 @@ async function handleChatCompletion(req, res, body) {
       const dailyLimit = provider.dailyLimit || 1000;
       const usedToday = getStats().providerUsage[key] || 0;
       if (usedToday >= dailyLimit * 0.9) weight *= 0.5;
-      // Providers with a history of failures lose weight (stability first)
-      const errorCount = getStats().errors[key] || 0;
-      if (errorCount > 5) weight *= 0.4;
+      // Providers with a history of failures lose weight (stability first).
+      // Use TODAY's failure count (reliability.fail) so overloaded providers
+      // are excluded now but recover next day. Heavy count → near-exclusion.
+      const relToday = getStats().reliability?.[key];
+      const todayFails = relToday?.day === today ? (relToday.fail || 0) : 0;
+      if (todayFails > 5) weight *= 0.4;
+      if (todayFails > 20) weight *= 0.05;
       // Today's reliability: providers that have been 100% successful get a boost
       const rel = getStats().reliability?.[key];
       if (rel && rel.success + rel.fail >= 3) {
