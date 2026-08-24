@@ -9,6 +9,7 @@ const { checkRateLimit } = require('./lib/rateLimit');
 const { handleDashboard } = require('./lib/dashboard');
 const { acquire, stats: poolStats } = require('./lib/pool');
 const { stripThink, cleanDelta, cleanMessage, fixReasoningMessage } = require('./lib/clean');
+const { classifyComplexity, maybeUpgradeTier } = require('./lib/routing');
 const logger = require('./lib/logger');
 
 // Load persisted state
@@ -24,7 +25,7 @@ if (stale.length > 0) {
   logger.info('Cleaned stale health entries', { removed: stale });
 }
 
-const cache = new LRUCache(500, 3600000);
+const cache = new LRUCache(500, 3600000, false, true); // 4th arg: semantic normalize ON
 require('./lib/cache')._activeCache = cache;
 
 // Load config (with fallback so a corrupt config never crashes the server)
@@ -120,7 +121,10 @@ setTimeout(healthCheck, 1000);
 // Chat completion handler
 async function handleChatCompletion(req, res, body) {
   const requestedModel = body.model || 'tier-splus';
-  let targetProviderKey = MODEL_MAP[requestedModel] || 'zai';
+  // Умный роутинг: сложные задачи с лёгкого тира поднимаем на более мощный.
+  // Классифицируем ПОСЛЕ того, как определён requestedModel, ДО выбора провайдера.
+  const effectiveModel = maybeUpgradeTier(requestedModel, classifyComplexity(body.messages));
+  let targetProviderKey = MODEL_MAP[effectiveModel] || MODEL_MAP[requestedModel] || 'zai';
   const isStreaming = body.stream === true;
 
   // Vision detection: if the request contains images, route to a vision provider.
@@ -205,7 +209,7 @@ async function handleChatCompletion(req, res, body) {
   }
 
   // Check cache (works for both streaming and non-streaming)
-  const cached = cache.get(requestedModel, body.messages, body.temperature);
+  const cached = cache.get(effectiveModel, body.messages, body.temperature);
   if (cached) {
     logger.request({ model: requestedModel, provider: 'cache', status: 200, cached: true });
     recordRecent({ model: requestedModel, provider: 'cache', status: 200, latency: 0, cached: true });
@@ -387,7 +391,7 @@ async function handleChatCompletion(req, res, body) {
           // Cache the assembled answer for repeat prompts (only if complete)
           if (chunks.length > 0) {
             const full = chunks.join('');
-            cache.set(requestedModel, body.messages, body.temperature, {
+            cache.set(effectiveModel, body.messages, body.temperature, {
               id: 'chatcmpl-cached',
               object: 'chat.completion',
               created: Math.floor(Date.now() / 1000),
@@ -411,7 +415,7 @@ async function handleChatCompletion(req, res, body) {
             fixReasoningMessage(result.data.choices[0].message);
             cleanMessage(result.data.choices[0].message);
           }
-        cache.set(requestedModel, body.messages, body.temperature, result.data);
+        cache.set(effectiveModel, body.messages, body.temperature, result.data);
         recordTokens(key, result.usage);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(result.data));
@@ -472,7 +476,7 @@ async function handleChatCompletion(req, res, body) {
           fixReasoningMessage(result.data.choices[0].message);
           cleanMessage(result.data.choices[0].message);
         }
-          cache.set(requestedModel, body.messages, body.temperature, result.data);
+          cache.set(effectiveModel, body.messages, body.temperature, result.data);
           recordTokens(key, result.usage);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(result.data));
