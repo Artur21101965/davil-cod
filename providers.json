@@ -183,5 +183,32 @@
     "envVar": "",
     "free": true,
     "local": true
+  },
+  "or-dots-3": {
+    "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+    "model": "dots-studio/dots-3-note-preview:free",
+    "priority": 19,
+    "dailyLimit": 50,
+    "keyHint": "openrouter.ai → Keys (Dots 3: 280B MoE, мощная)",
+    "envVar": "PROVIDER_OPENROUTER_APIKEY",
+    "free": true
+  },
+  "or-lfm": {
+    "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+    "model": "liquid/lfm-2.5-2.6b:free",
+    "priority": 20,
+    "dailyLimit": 50,
+    "keyHint": "openrouter.ai → Keys (LFM 2.5: быстрая reasoning)",
+    "envVar": "PROVIDER_OPENROUTER_APIKEY",
+    "free": true
+  },
+  "or-laguna-xs": {
+    "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+    "model": "poolside/laguna-xs-2.1:free",
+    "priority": 21,
+    "dailyLimit": 50,
+    "keyHint": "openrouter.ai → Keys (Laguna XS: кодинг)",
+    "envVar": "PROVIDER_OPENROUTER_APIKEY",
+    "free": true
   }
 }
