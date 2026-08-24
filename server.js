@@ -257,7 +257,10 @@ async function handleChatCompletion(req, res, body) {
       let weight = score / lat;
       // Rate-limited providers are last resort — heavy penalty
       if (h.status === 'ratelimited') weight *= 0.05;
-      if (key === targetProviderKey) weight *= 2;
+      // Mapped (target) provider gets a SLIGHT preference, but the pool must
+      // still be able to pick faster/healthier providers for tier aliases —
+      // otherwise Freegate always routes tier-s to Codestral and never varies.
+      if (key === targetProviderKey) weight *= 1.15;
       const dailyLimit = provider.dailyLimit || 1000;
       const usedToday = getStats().providerUsage[key] || 0;
       if (usedToday >= dailyLimit * 0.9) weight *= 0.5;
@@ -279,30 +282,34 @@ async function handleChatCompletion(req, res, body) {
     }).sort((a, b) => b.weight - a.weight);
 
     const totalWeight = scored.reduce((s, p) => s + p.weight, 0);
+    // Weighted random: pick ONE provider as the starting candidate. The rest
+    // are kept as fallbacks below. (Bugfix: was assigning the whole `scored`
+    // list, which made the first (heaviest) provider win every time.)
     let r = Math.random() * totalWeight;
     for (const p of scored) {
       r -= p.weight;
-      if (r <= 0) { selected = scored; break; }
+      if (r <= 0) { selected = [p]; break; }
     }
-    if (selected.length === 0) selected = scored;
+    if (selected.length === 0) selected = [scored[0]];
   }
 
-  const enabledProviders = selected.length > 0 ? selected.map(s => [s.key, s.provider]) :
-    Object.entries(PROVIDERS).filter(([_, p]) => p.enabled)
+  // Weighted-random picked ONE provider as the primary; append the rest of the
+  // healthy pool (by weight) as fallbacks so a failing pick still recovers.
+  const restOfPool = selected.length > 0 && pool.length > 0
+    ? pool.map(([k, p]) => ({ key: k, provider: p })).filter(s => s.key !== selected[0].key)
+      .sort((a, b) => (getHealth()[b.key]?.score || 0) - (getHealth()[a.key]?.score || 0))
+    : [];
+  const enabledProviders = selected.length > 0
+    ? [selected[0]].concat(restOfPool).map(s => [s.key, s.provider])
+    : Object.entries(PROVIDERS).filter(([_, p]) => p.enabled)
       .sort((a, b) => (getHealth()[b[0]]?.score || 50) - (getHealth()[a[0]]?.score || 50));
 
-  // The requested model's mapped provider MUST be tried first — even for
-  // tier aliases. Without this, weighted selection may route the agent to a
-  // slow/empty-streaming provider (e.g. Nemotron-120b) instead of the fast one.
+  // Ensure the requested model's mapped provider is at least IN the candidate
+  // list (it may have been filtered out), but DON'T force it to the front —
+  // the weighted selection above should pick the fastest/healthiest provider.
   if (MODEL_MAP[requestedModel] && PROVIDERS[targetProviderKey]) {
-    // Ensure the target provider is in the candidate list at all
     if (!enabledProviders.some(([k]) => k === targetProviderKey)) {
       enabledProviders.unshift([targetProviderKey, PROVIDERS[targetProviderKey]]);
-    }
-    const targetIdx = enabledProviders.findIndex(([k]) => k === targetProviderKey);
-    if (targetIdx > 0) {
-      const [t] = enabledProviders.splice(targetIdx, 1);
-      enabledProviders.unshift(t);
     }
   }
 
