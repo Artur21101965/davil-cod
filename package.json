@@ -1,10 +1,10 @@
 {
-  "name": "davil-cod",
+  "name": "freegate",
   "version": "0.6.0",
-  "description": "Free multi-provider LLM proxy with automatic failover. One OpenAI-compatible endpoint routes to 18 free models (Groq, Mistral, Gemini, NIM, OpenRouter, ZAI). Never pay for LLMs.",
+  "description": "Free multi-provider LLM gateway with automatic failover. One OpenAI-compatible endpoint routes to 25 free models (Groq, Mistral, Gemini, NIM, OpenRouter, ZAI, Cerebras, DeepSeek). Never pay for LLMs.",
   "license": "MIT",
   "bin": {
-    "davil-cod": "./bin/davil-cod.js"
+    "freegate": "./bin/freegate.js"
   },
   "scripts": {
     "start": "node server.js",
@@ -16,12 +16,14 @@
   "keywords": [
     "llm",
     "proxy",
+    "gateway",
     "free",
     "openai",
     "failover",
     "groq",
     "mistral",
     "gemini",
+    "deepseek",
     "llm-gateway",
     "multi-provider",
     "self-hosted",

@@ -1,5 +1,5 @@
 #!/bin/bash
-# deploy-oracle.sh — deploy DAVIL Cod LLM proxy to a fresh Oracle Cloud Free Tier VM.
+# deploy-oracle.sh — deploy Freegate LLM proxy to a fresh Oracle Cloud Free Tier VM.
 #
 # Usage:
 #   ./deploy-oracle.sh <VM_IP> [ssh_user]
@@ -25,7 +25,7 @@ PROXY_DIR="$HOME/.config/opencode/llm-proxy"
 SSH_KEY="${SSH_KEY:-$HOME/.ssh/id_ed25519}"
 AUTH="${AUTH:-free-llm-proxy-2024}"
 
-echo "=== DAVIL Cod deploy → $SSH_USER@$VM_IP ==="
+echo "=== Freegate deploy → $SSH_USER@$VM_IP ==="
 
 # 1. Wait for SSH to come up
 echo "[1/6] Ждём SSH на $VM_IP..."
@@ -70,7 +70,7 @@ echo "[4/6] Настраиваем systemd-службу..."
 ssh -i "$SSH_KEY" "$SSH_USER@$VM_IP" "
   cat > /tmp/llm-proxy.service << 'UNIT'
 [Unit]
-Description=DAVIL Cod LLM proxy
+Description=Freegate LLM proxy
 After=network.target
 
 [Service]
@@ -118,14 +118,14 @@ if [ "$STATUS" = "200" ]; then
   cat << CFG
     "free-proxy-oracle": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "DAVIL Cod (Oracle)",
+      "name": "Freegate (Oracle)",
       "options": {
         "baseURL": "$PUBLIC_URL/v1",
         "apiKey": "$AUTH"
       },
       "models": {
         "tier-splus": {
-          "name": "DAVIL Cod Remote (Best)",
+          "name": "Freegate Remote (Best)",
           "attachment": true,
           "reasoning": false,
           "input": ["text"],
@@ -134,7 +134,7 @@ if [ "$STATUS" = "200" ]; then
           "maxTokens": 16384
         },
         "tier-s": {
-          "name": "DAVIL Cod Remote (Fast)",
+          "name": "Freegate Remote (Fast)",
           "attachment": true,
           "reasoning": false,
           "input": ["text"],
@@ -146,7 +146,7 @@ if [ "$STATUS" = "200" ]; then
     },
 CFG
   echo ""
-  echo "После этого перезапусти opencode и выбери модель DAVIL Cod Remote."
+  echo "После этого перезапусти opencode и выбери модель Freegate Remote."
 else
   echo "Прокси НЕ отвечает — проверь:"
   echo "  - В Oracle консоли: Networking → Security Lists → добавь Ingress правило TCP 4000"

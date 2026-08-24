@@ -1,4 +1,4 @@
-# DAVIL Cod
+# Freegate
 
 [![CI](https://github.com/Artur21101965/davil-cod/actions/workflows/ci.yml/badge.svg)](https://github.com/Artur21101965/davil-cod/actions)
 [![Docker Hub](https://img.shields.io/docker/pulls/nik951751/davil-cod.svg)](https://hub.docker.com/r/nik951751/davil-cod)
@@ -10,7 +10,7 @@
 ## Зачем платить за LLM, когда есть бесплатные?
 
 Твой AI-агент, бот или скрипт использует один OpenAI-совместимый endpoint.
-За ним DAVIL Cod автоматически распределяет запросы между **25 бесплатными
+За ним Freegate автоматически распределяет запросы между **25 бесплатными
 моделями** — Groq, Mistral, Gemini, NVIDIA NIM, OpenRouter, ZAI, Cerebras,
 DeepSeek и локальные модели. Если один провайдер упал, перегружен или сжёг
 дневной лимит — запрос **мгновенно уходит на следующий**. Ты никогда не
@@ -18,7 +18,7 @@ DeepSeek и локальные модели. Если один провайде�
 
 **Результат:** полноценный LLM-доступ для повседневной работы по цене $0.
 
-![Дашборд DAVIL Cod](assets/dashboard.png)
+![Дашборд Freegate](assets/dashboard.png)
 
 ## Возможности
 
@@ -70,14 +70,14 @@ docker run -d --name davil-cod -p 4000:4000 \
   "provider": {
     "free-proxy": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "DAVIL Cod",
+      "name": "Freegate",
       "options": {
         "baseURL": "http://localhost:4000/v1",
         "apiKey": "your-secret-key-here"
       },
       "models": {
-        "tier-splus": { "name": "DAVIL Cod (Best)", "input": ["text"] },
-        "tier-s": { "name": "DAVIL Cod (Fast)", "input": ["text"] }
+        "tier-splus": { "name": "Freegate (Best)", "input": ["text"] },
+        "tier-s": { "name": "Freegate (Fast)", "input": ["text"] }
       }
     }
   }
@@ -107,7 +107,7 @@ docker run -d --name davil-cod -p 4000:4000 \
 ## Как это работает
 
 1. Приходит запрос на `/v1/chat/completions` (формат OpenAI).
-2. DAVIL Cod выбирает лучший провайдер: здоровый, под лимитом, самый быстрый сегодня.
+2. Freegate выбирает лучший провайдер: здоровый, под лимитом, самый быстрый сегодня.
 3. Если запрос не прошёл — мгновенно пробует следующий из цепочки.
 4. Ответ возвращается клиенту в том же формате — клиент ничего не замечает.
 

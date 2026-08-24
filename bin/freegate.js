@@ -55,7 +55,7 @@ async function initWizard() {
   }
 
   // 3. Write .env
-  const envLines = ['# DAVIL Cod — API ключи. Сгенерировано ' + new Date().toISOString().slice(0, 10)];
+  const envLines = ['# Freegate — API ключи. Сгенерировано ' + new Date().toISOString().slice(0, 10)];
   for (const envVar of envVars.keys()) {
     envLines.push(`${envVar}=${keys[envVar] || ''}`);
   }
@@ -138,7 +138,7 @@ if (cmd === 'init') {
   } else {
     // Linux: systemd user service
     const unit = `[Unit]
-Description=DAVIL Cod LLM proxy
+Description=Freegate LLM proxy
 After=network.target
 
 [Service]
@@ -181,7 +181,7 @@ WantedBy=default.target
   const http = require('http');
   const base = `http://127.0.0.1:${process.env.PORT || 4000}`;
   const pkg = require(path.join(ROOT, 'package.json'));
-  console.log('DAVIL Cod v' + pkg.version);
+  console.log('Freegate v' + pkg.version);
   console.log('-----------------------------');
   http.get(base + '/v1/stats', (res) => {
     let data = '';
@@ -218,7 +218,7 @@ WantedBy=default.target
   const pkg = require(path.join(ROOT, 'package.json'));
   console.log(pkg.version);
 } else {
-  console.log('DAVIL Cod — бесплатный LLM-прокси с failover');
+  console.log('Freegate — бесплатный LLM-прокси с failover');
   console.log('Команды:');
   console.log('  npx davil-cod init       интерактивная настройка (ключи, пароль)');
   console.log('  npx davil-cod start      запустить прокси');

@@ -654,7 +654,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, process.env.HOST || '127.0.0.1', () => {
-  logger.info('DAVIL Cod started', { port: PORT });
+  logger.info('Freegate started', { port: PORT });
   console.log('Dashboard: http://localhost:' + PORT + '/');
 });
 

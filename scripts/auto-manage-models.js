@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// scripts/auto-manage-models.js — automated model management for DAVIL Cod.
+// scripts/auto-manage-models.js — automated model management for Freegate.
 //
 // What it does:
 //   1. Scans OpenRouter for free models NOT yet in the catalog
@@ -74,7 +74,7 @@ async function testModel(endpoint, model, apiKey, timeout = 25000) {
 }
 
 async function main() {
-  console.log('=== DAVIL Cod: автоуправление моделями ===');
+  console.log('=== Freegate: автоуправление моделями ===');
   console.log('Режим:', AUTO_ADD ? 'AUTO-ADD (добавляю рабочие)' : 'только отчёт');
 
   // Load current catalog + config

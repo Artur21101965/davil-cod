@@ -4,7 +4,7 @@
   "references": {
     "providers": {
       "path": "./providers.json",
-      "description": "Каталог провайдеров DAVIL Cod: эндпоинты, модели, лимиты, keyHint. Смотри при добавлении/изменении провайдеров."
+      "description": "Каталог провайдеров Freegate: эндпоинты, модели, лимиты, keyHint. Смотри при добавлении/изменении провайдеров."
     },
     "prompts": {
       "path": "./tools/prompts.md",
@@ -12,7 +12,7 @@
     },
     "examples": {
       "path": "./examples",
-      "description": "Примеры подключения DAVIL Cod к клиентам: opencode, Cursor, Claude Code, скрипты."
+      "description": "Примеры подключения Freegate к клиентам: opencode, Cursor, Claude Code, скрипты."
     }
   }
 }

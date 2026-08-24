@@ -1,4 +1,4 @@
-# DAVIL Cod
+# Freegate
 
 [![CI](https://github.com/Artur21101965/davil-cod/actions/workflows/ci.yml/badge.svg)](https://github.com/Artur21101965/davil-cod/actions)
 [![Docker Hub](https://img.shields.io/docker/pulls/nik951751/davil-cod.svg)](https://hub.docker.com/r/nik951751/davil-cod)
@@ -11,7 +11,7 @@
 ## Why pay for LLMs when free ones exist?
 
 Your AI agent, bot, or script talks to a single OpenAI-compatible endpoint.
-Behind it, DAVIL Cod automatically routes requests across **25 free models**
+Behind it, Freegate automatically routes requests across **25 free models**
 from Groq, Mistral, Gemini, NVIDIA NIM, OpenRouter, ZAI, Cerebras, DeepSeek
 and local models. If one provider goes down, gets overloaded, or burns its
 daily limit — the request **instantly falls through to the next one**. You
@@ -19,7 +19,7 @@ never see "rate limit", and you never pay.
 
 **Result:** full LLM access for everyday work at the price of **$0**.
 
-![DAVIL Cod Dashboard](assets/dashboard.png)
+![Freegate Dashboard](assets/dashboard.png)
 
 ## Features
 
@@ -71,14 +71,14 @@ Example for opencode (`~/.config/opencode/opencode.jsonc`):
   "provider": {
     "free-proxy": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "DAVIL Cod",
+      "name": "Freegate",
       "options": {
         "baseURL": "http://localhost:4000/v1",
         "apiKey": "your-secret-key-here"
       },
       "models": {
-        "tier-splus": { "name": "DAVIL Cod (Best)", "input": ["text"] },
-        "tier-s": { "name": "DAVIL Cod (Fast)", "input": ["text"] }
+        "tier-splus": { "name": "Freegate (Best)", "input": ["text"] },
+        "tier-s": { "name": "Freegate (Fast)", "input": ["text"] }
       }
     }
   }
@@ -108,7 +108,7 @@ to watch for new releases. The model manager runs every 6 hours.
 ## How it works
 
 1. A request arrives at `/v1/chat/completions` (OpenAI format).
-2. DAVIL Cod picks the best provider: healthy, under limit, fastest today.
+2. Freegate picks the best provider: healthy, under limit, fastest today.
 3. If it fails — instantly tries the next one in the chain.
 4. The response returns in the same format — the client never notices.
 

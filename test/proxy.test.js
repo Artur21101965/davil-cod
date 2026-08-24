@@ -1,4 +1,4 @@
-// test/proxy.test.js — unit tests for DAVIL Cod proxy logic (no external deps)
+// test/proxy.test.js — unit tests for Freegate proxy logic (no external deps)
 // Run: node --test test/
 const test = require('node:test');
 const assert = require('node:assert');
@@ -140,7 +140,7 @@ test('health: user config can disable a catalog provider (enabled:false)', () =>
 test('providers: CLI status and test commands exist in help', () => {
   const { execSync } = require('child_process');
   const path = require('path');
-  const bin = path.join(__dirname, '..', 'bin', 'davil-cod.js');
+  const bin = path.join(__dirname, '..', 'bin', 'freegate.js');
   const help = execSync(`node "${bin}"`).toString();
   assert.ok(help.includes('status'), 'status command documented');
   assert.ok(help.includes('install-service'), 'install-service documented');
@@ -173,7 +173,7 @@ test('CLI: init (non-interactive) creates config and env without overwriting', (
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'davil-init-'));
   // Pre-existing config must be preserved
   fs.writeFileSync(path.join(tmp, 'config.json'), '{"port":4123}');
-  const bin = path.join(__dirname, '..', 'bin', 'davil-cod.js');
+  const bin = path.join(__dirname, '..', 'bin', 'freegate.js');
   execSync(`node "${bin}" init`, { cwd: tmp, stdio: 'pipe' });
   const cfg = JSON.parse(fs.readFileSync(path.join(tmp, 'config.json'), 'utf8'));
   assert.strictEqual(cfg.port, 4123, 'existing config not overwritten');

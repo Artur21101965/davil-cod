@@ -1,8 +1,8 @@
-// Простой Node.js скрипт через DAVIL Cod.
+// Простой Node.js скрипт через Freegate.
 // Запуск: node examples/simple.js
 // Прокси должен быть запущен: npx davil-cod start
 
-const AUTH = process.env.DAVIL_AUTH || 'твой_пароль';
+const AUTH = process.env.FREEGATE_AUTH || 'твой_пароль';
 
 async function main() {
   const res = await fetch('http://localhost:4000/v1/chat/completions', {

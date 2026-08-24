@@ -1,4 +1,4 @@
-# Как подключить DAVIL Cod к Claude Code
+# Как подключить Freegate к Claude Code
 
 Claude Code (CLI от Anthropic) поддерживает OpenAI-совместимые прокси
 через переменные окружения.

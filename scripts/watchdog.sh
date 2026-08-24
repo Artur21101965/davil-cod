@@ -1,5 +1,5 @@
 #!/bin/bash
-# watchdog.sh — restart the DAVIL Cod LLM proxy if it's down or unresponsive.
+# watchdog.sh — restart the Freegate LLM proxy if it's down or unresponsive.
 # Runs every minute via launchd. Kills hung processes, then starts the proxy.
 
 set -u
@@ -15,7 +15,7 @@ log() {
 
 notify() {
   # macOS system notification via osascript
-  osascript -e "display notification \"$2\" with title \"DAVIL Cod — $1\"" 2>/dev/null || true
+  osascript -e "display notification \"$2\" with title \"Freegate — $1\"" 2>/dev/null || true
 }
 
 is_alive() {
@@ -63,7 +63,7 @@ sleep 4
 
 if is_alive; then
   log "proxy started OK"
-  notify "Прокси перезапущен" "DAVIL Cod снова работает"
+  notify "Прокси перезапущен" "Freegate снова работает"
   exit 0
 else
   log "proxy FAILED to start"
