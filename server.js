@@ -134,18 +134,6 @@ async function handleChatCompletion(req, res, body) {
     }
     return false;
   });
-  // Debug: log raw message keys if any mention image/attachment/file
-  if (!hasImage && Array.isArray(body.messages)) {
-    for (const m of body.messages) {
-      if (m && typeof m === 'object' && (m.image || m.attachments || m.file || (Array.isArray(m.content) && m.content.some(c => c && c.image)))) {
-        logger.info('Vision debug: обнаружено изображение в другом формате', {
-          keys: Object.keys(m).slice(0, 8),
-          contentTypes: Array.isArray(m.content) ? m.content.map(c => c && c.type) : null,
-        });
-        break;
-      }
-    }
-  }
   if (hasImage) {
     // Two-stage pipeline: try vision providers in order until one extracts text.
     const visionChain = ['gemini-vision', 'nim-vision', 'deepseek-vision']
@@ -162,7 +150,11 @@ async function handleChatCompletion(req, res, body) {
               role: 'user',
               content: [
                 { type: 'text', text: 'Распознай и извлеки ВЕСЬ текст с изображения (ошибка, код, сообщение). Верни только содержимое, без комментариев. Если это код — верни код как есть.' },
-                ...(Array.isArray(body.messages) ? body.messages.flatMap((m) => (Array.isArray(m.content) ? m.content.filter((c) => c.type === 'image_url' || c.type === 'image') : [])) : []),
+                ...(Array.isArray(body.messages) ? body.messages.flatMap((m) => (Array.isArray(m.content) ? m.content.filter((c) => c && (c.type === 'image_url' || c.type === 'image' || c.type === 'input_image')).map((c) => {
+                  // Normalize any image part to the universal image_url format
+                  const url = c.image_url?.url || c.image?.url || (c.image && typeof c.image === 'string' ? c.image : null) || c.url;
+                  return url ? { type: 'image_url', image_url: { url } } : null;
+                }).filter(Boolean) : [])) : []),
               ],
             }],
             max_tokens: 2000,
@@ -183,8 +175,9 @@ async function handleChatCompletion(req, res, body) {
         body = {
           ...body,
           messages: userMsgs.map((m) => {
-            if (Array.isArray(m.content) && m.content.some((c) => c.type === 'image_url' || c.type === 'image')) {
-              return { role: 'user', content: `${m.content.find((c) => c.type === 'text')?.text || ''}\n\n[Содержимое скриншота]\n${cleaned}` };
+            if (Array.isArray(m.content) && m.content.some((c) => c && (c.type === 'image_url' || c.type === 'image' || c.type === 'input_image'))) {
+              const textPart = m.content.find((c) => c && c.type === 'text')?.text || '';
+              return { role: 'user', content: `${textPart}\n\n[Содержимое скриншота]\n${cleaned}` };
             }
             return m;
           }),
