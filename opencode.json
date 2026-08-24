@@ -1,0 +1,18 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": ["README.md", "README.ru.md"],
+  "references": {
+    "providers": {
+      "path": "./providers.json",
+      "description": "Каталог провайдеров DAVIL Cod: эндпоинты, модели, лимиты, keyHint. Смотри при добавлении/изменении провайдеров."
+    },
+    "prompts": {
+      "path": "./tools/prompts.md",
+      "description": "Каталог промптов для генерации шортс-видео (MiniMax H3 / Wan 2.1). Используй при генерации медиа."
+    },
+    "examples": {
+      "path": "./examples",
+      "description": "Примеры подключения DAVIL Cod к клиентам: opencode, Cursor, Claude Code, скрипты."
+    }
+  }
+}
