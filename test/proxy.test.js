@@ -7,14 +7,14 @@ const { acquire } = require('../lib/pool');
 const { checkRateLimit } = require('../lib/rateLimit');
 
 test('LRUCache: stores and retrieves by model/messages', () => {
-  const c = new LRUCache(10, 60000);
+  const c = new LRUCache(10, 60000, true);
   c.set('m', [{ role: 'user', content: 'hi' }], 0, { hello: 'world' });
   assert.deepStrictEqual(c.get('m', [{ role: 'user', content: 'hi' }], 0), { hello: 'world' });
   assert.strictEqual(c.get('m', [{ role: 'user', content: 'other' }], 0), null);
 });
 
 test('LRUCache: evicts oldest when full', () => {
-  const c = new LRUCache(2, 60000);
+  const c = new LRUCache(2, 60000, true);
   c.set('a', [{ role: 'user', content: '1' }], 0, 'first');
   c.set('b', [{ role: 'user', content: '2' }], 0, 'second');
   c.set('c', [{ role: 'user', content: '3' }], 0, 'third');
@@ -23,7 +23,7 @@ test('LRUCache: evicts oldest when full', () => {
 });
 
 test('LRUCache: TTL expiry', () => {
-  const c = new LRUCache(10, 1); // 1ms TTL
+  const c = new LRUCache(10, 1, true); // 1ms TTL
   c.set('m', [{ role: 'user', content: 'hi' }], 0, 'value');
   setTimeout(() => {
     assert.strictEqual(c.get('m', [{ role: 'user', content: 'hi' }], 0), null);
@@ -31,7 +31,7 @@ test('LRUCache: TTL expiry', () => {
 });
 
 test('LRUCache: hit/miss stats', () => {
-  const c = new LRUCache(10, 60000);
+  const c = new LRUCache(10, 60000, true);
   c.set('m', [{ role: 'user', content: 'hi' }], 0, 'v');
   c.get('m', [{ role: 'user', content: 'hi' }], 0); // hit
   c.get('x', [{ role: 'user', content: 'no' }], 0); // miss

@@ -8,7 +8,7 @@
   },
   "scripts": {
     "start": "node server.js",
-    "test": "node --test test/proxy.test.js"
+    "test": "node --test --test-concurrency=1 test/proxy.test.js test/clean.test.js"
   },
   "engines": {
     "node": ">=18"
