@@ -170,7 +170,7 @@ async function handleChatCompletion(req, res, body) {
                 { type: 'text', text: 'Распознай и извлеки ВЕСЬ текст с изображения (ошибка, код, сообщение). Верни только содержимое, без комментариев. Если это код — верни код как есть.' },
                 ...(Array.isArray(body.messages) ? body.messages.flatMap((m) => (Array.isArray(m.content) ? m.content.filter((c) => c && (c.type === 'image_url' || c.type === 'image' || c.type === 'input_image')).map((c) => {
                   // Normalize any image part to the universal image_url format
-                  const url = c.image_url?.url || c.image?.url || (c.image && typeof c.image === 'string' ? c.image : null) || c.url;
+                  const url = c.image_url?.url || c.image?.url || c.image?.data || (c.image && typeof c.image === 'string' ? c.image : null) || c.url;
                   return url ? { type: 'image_url', image_url: { url } } : null;
                 }).filter(Boolean) : [])) : []),
               ],
