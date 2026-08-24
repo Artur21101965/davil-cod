@@ -134,6 +134,24 @@ async function handleChatCompletion(req, res, body) {
     }
     return false;
   });
+  // Log any message that LOOKS like it carries an image (any field), so we can
+  // adapt detection to opencode's actual format.
+  if (Array.isArray(body.messages)) {
+    for (const m of body.messages) {
+      const suspicious = m && (
+        m.attachments || m.image || m.file ||
+        (Array.isArray(m.content) && m.content.some(c => c && (c.image || c.image_url || c.file || c.data || c.type === 'file')))
+      );
+      if (suspicious) {
+        logger.info('Vision format detected', {
+          keys: Object.keys(m || {}),
+          contentTypes: Array.isArray(m.content) ? m.content.map(c => c && (c.type || 'plain')) : null,
+          contentKeys: Array.isArray(m.content) ? m.content.map(c => c && Object.keys(c).slice(0,5)) : null,
+        });
+        break;
+      }
+    }
+  }
   if (hasImage) {
     // Two-stage pipeline: try vision providers in order until one extracts text.
     const visionChain = ['gemini-vision', 'nim-vision', 'deepseek-vision']
@@ -211,8 +229,10 @@ async function handleChatCompletion(req, res, body) {
   const today = new Date().toISOString().slice(0, 10);
   // 'ratelimited' providers are alive but temporarily limited — include them
   // (weighted down) so the pool never looks empty when many limits are hot.
+  // Vision providers are ONLY used for image requests (two-stage pipeline),
+  // never for plain text — otherwise they dominate the weighted selection.
   const healthyProviders = Object.entries(PROVIDERS)
-    .filter(([_, p]) => p.enabled && !isCircuitOpen(p.key) &&
+    .filter(([_, p]) => p.enabled && !isCircuitOpen(p.key) && p.vision !== true &&
       (getHealth()[p.key]?.status === 'up' || getHealth()[p.key]?.status === 'ratelimited'));
 
   // Prefer providers below 90% of their daily limit; only fall back to
