@@ -160,6 +160,22 @@ npx davil-cod dashboard         # открыть дашборд
 **Это только для opencode?** Нет. Любой OpenAI-совместимый клиент
 (см. `examples/` — Cursor, Claude Code, скрипты).
 
+## Инструменты (tools/)
+
+### Генератор шортс — `tools/generate_shorts.py`
+Бесплатная генерация вертикальных видео (9:16) через **MiniMax H3** (видео + звук
+из одного промпта) или **Wan 2.1**. Работает через онлайн-демо Hugging Face —
+GPU в облаке, без установки.
+
+```bash
+cd tools
+uv venv .venv && uv pip install --python .venv/bin/python -r requirements.txt
+export HF_TOKEN=hf_xxx            # бесплатно: huggingface.co → settings/tokens
+./.venv/bin/python generate_shorts.py "Cozy morning scene, warm light" --format 9:16 --duration 5
+```
+
+Каталог готовых промптов: `tools/prompts.md`.
+
 ## Лицензия
 
 MIT
