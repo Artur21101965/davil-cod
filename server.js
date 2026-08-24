@@ -558,9 +558,11 @@ const server = http.createServer(async (req, res) => {
             res.end(JSON.stringify({ error: { message: 'Generation failed: ' + err.message, detail: String(stderr).slice(0, 300) } }));
             return;
           }
-          // Parse output dir from stdout ("Готово: N видео" + paths)
-          const paths = String(stdout).match(/\.mp4/g) ? String(stdout).split('\n').filter(l => l.trim().endsWith('.mp4')).map(l => l.trim()) : [];
-          const files = paths.filter(p => p.endsWith('.mp4'));
+          // Parse absolute .mp4 paths from stdout
+          const files = String(stdout).split('\n')
+            .map(l => l.trim())
+            .filter(l => l.includes('.mp4') && l.startsWith('/'))
+            .map(l => l.split(' ').pop().trim());
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ ok: true, files, stdout: String(stdout).slice(0, 2000) }));
         });
