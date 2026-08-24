@@ -34,3 +34,15 @@ test('clean: cleanDelta strips think from streaming delta', () => {
   cleanDelta(delta);
   assert.strictEqual(delta.content, 'visible');
 });
+
+test('clean: streaming delta keeps boundary spaces (no trim)', () => {
+  const { stripThink } = require('../lib/clean');
+  // Simulate a chunk that STARTS with a space (word boundary)
+  const chunk = ' привет';
+  assert.strictEqual(stripThink(chunk, false), ' привет');
+});
+
+test('clean: full message IS trimmed', () => {
+  const { stripThink } = require('../lib/clean');
+  assert.strictEqual(stripThink('  привет  '), 'привет');
+});

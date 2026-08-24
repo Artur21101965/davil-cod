@@ -1,6 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "instructions": ["README.md", "README.ru.md"],
+  "instructions": ["README.md", "README.ru.md", "PROJECT_MEMORY.md"],
   "references": {
     "providers": {
       "path": "./providers.json",

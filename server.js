@@ -282,7 +282,7 @@ async function handleChatCompletion(req, res, body) {
               try {
                 const obj = JSON.parse(m[1]);
                 const delta = obj.choices?.[0]?.delta?.content;
-                if (typeof delta === 'string') chunks.push(stripThink(delta));
+                if (typeof delta === 'string') chunks.push(stripThink(delta, false));
               } catch {}
             }
             const cleaned = str.replace(/^data: (.+)$/gm, (match, jsonStr) => {
