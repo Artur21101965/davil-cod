@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { LRUCache } = require('./lib/cache');
 const { PROVIDERS, MODEL_MAP, callProvider } = require('./lib/providers');
-const { loadState, initHealth, isCircuitOpen, recordSuccess, recordFailure, recordRequest, recordTokens, getHealth, getStats, recordRecent, recordRpm, getRecent, getRpm } = require('./lib/health');
+const { loadState, initHealth, isCircuitOpen, recordSuccess, recordFailure, recordRequest, recordTokens, getHealth, getStats, recordRecent, recordRpm, getRecent, getRpm, recordSelection, getLastSelection } = require('./lib/health');
 const { checkRateLimit } = require('./lib/rateLimit');
 const { handleDashboard } = require('./lib/dashboard');
 const { acquire, stats: poolStats } = require('./lib/pool');
@@ -339,6 +339,7 @@ async function handleChatCompletion(req, res, body) {
       recordRequest(key, true);
       logger.request({ model: requestedModel, provider: key, status: 200, latency: result.latency, stream: isStreaming });
       recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
+      recordSelection(key, provider.model, requestedModel);
 
       if (isStreaming && result.stream) {
         res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
@@ -550,6 +551,7 @@ const server = http.createServer(async (req, res) => {
       cache: cache.stats(),
       limits,
       pool: poolStats(),
+      last_selection: getLastSelection(),
     }));
     return;
   }
