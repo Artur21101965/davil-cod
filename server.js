@@ -8,6 +8,7 @@ const { loadState, initHealth, isCircuitOpen, recordSuccess, recordFailure, reco
 const { checkRateLimit } = require('./lib/rateLimit');
 const { handleDashboard } = require('./lib/dashboard');
 const { acquire, stats: poolStats } = require('./lib/pool');
+const { stripThink, cleanDelta, cleanMessage } = require('./lib/clean');
 const logger = require('./lib/logger');
 
 // Load persisted state
@@ -96,8 +97,9 @@ async function checkProvider(key, provider) {
       getHealth()[key].reason = 'отключён автоматически (404)';
       logger.warn('Provider auto-disabled (404)', { key, model: provider.model });
     } else {
-      const backoff = Math.min((healthIntervals[key]?.backoff || 60000) * 2, 600000);
-      healthIntervals[key] = { nextCheck: Date.now() + backoff, backoff };
+      // Re-check soon after a transient failure so the provider recovers quickly.
+      // Growing backoff (up to 10 min) would leave it 'dead' too long for users.
+      healthIntervals[key] = { nextCheck: Date.now() + 60000, backoff: 60000 };
     }
     return false;
   }
@@ -214,6 +216,16 @@ async function handleChatCompletion(req, res, body) {
     Object.entries(PROVIDERS).filter(([_, p]) => p.enabled)
       .sort((a, b) => (getHealth()[b[0]]?.score || 50) - (getHealth()[a[0]]?.score || 50));
 
+  // If the client explicitly asked for a specific model (not a tier alias),
+  // that provider MUST be tried first — not out-weighed by others.
+  if (MODEL_MAP[requestedModel] && !requestedModel.startsWith('tier')) {
+    const targetIdx = enabledProviders.findIndex(([k]) => k === targetProviderKey);
+    if (targetIdx > 0) {
+      const [t] = enabledProviders.splice(targetIdx, 1);
+      enabledProviders.unshift(t);
+    }
+  }
+
   if (enabledProviders.length === 0) {
     res.writeHead(503, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'No providers available' }));
@@ -255,7 +267,7 @@ async function handleChatCompletion(req, res, body) {
         const cleaner = new Transform({
           transform(chunk, encoding, callback) {
             const str = chunk.toString();
-            // Collect SSE JSON payloads for caching
+            // Collect SSE JSON payloads for caching (strip think blocks)
             const lines = str.split('\n');
             for (const line of lines) {
               const m = line.match(/^data: (.+)$/);
@@ -263,7 +275,7 @@ async function handleChatCompletion(req, res, body) {
               try {
                 const obj = JSON.parse(m[1]);
                 const delta = obj.choices?.[0]?.delta?.content;
-                if (typeof delta === 'string') chunks.push(delta);
+                if (typeof delta === 'string') chunks.push(stripThink(delta));
               } catch {}
             }
             const cleaned = str.replace(/^data: (.+)$/gm, (match, jsonStr) => {
@@ -271,7 +283,10 @@ async function handleChatCompletion(req, res, body) {
               try {
                 const obj = JSON.parse(jsonStr);
                 delete obj.nvext;
-                if (obj.choices?.[0]) delete obj.choices[0].logprobs;
+                if (obj.choices?.[0]) {
+                  delete obj.choices[0].logprobs;
+                  cleanDelta(obj.choices[0].delta);
+                }
                 return 'data: ' + JSON.stringify(obj);
               } catch { return match; }
             });
@@ -302,6 +317,7 @@ async function handleChatCompletion(req, res, body) {
 
       if (!isStreaming && result.data) {
         delete result.data.nvext;
+        if (result.data.choices?.[0]) cleanMessage(result.data.choices[0].message);
         cache.set(requestedModel, body.messages, body.temperature, result.data);
         recordTokens(key, result.usage);
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -347,6 +363,7 @@ async function handleChatCompletion(req, res, body) {
         recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
         if (!body.stream && result.data) {
           delete result.data.nvext;
+          if (result.data.choices?.[0]) cleanMessage(result.data.choices[0].message);
           cache.set(requestedModel, body.messages, body.temperature, result.data);
           recordTokens(key, result.usage);
           res.writeHead(200, { 'Content-Type': 'application/json' });
