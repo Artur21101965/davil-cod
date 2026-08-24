@@ -205,3 +205,19 @@ test('pool: limits concurrency and queues overflow', async () => {
 // Stop background timers so the test process can exit (health.js sets setInterval)
 require('../lib/health')._stopTimers();
 require('../lib/cache')._stopTimers();
+
+test('cache: hits/misses persist across restarts', () => {
+  const os = require('os');
+  const fs = require('fs');
+  const path = require('path');
+  const { LRUCache } = require('../lib/cache');
+  // Create a cache, hit once, persist, then recreate (simulates restart)
+  const c1 = new LRUCache(5, 60000);
+  c1.set('m', [{ role: 'user', content: 'persist' }], 0, 'v');
+  c1.get('m', [{ role: 'user', content: 'persist' }], 0); // 1 hit
+  c1.persist();
+  const c2 = new LRUCache(5, 60000);
+  const stats = c2.stats();
+  assert.ok(stats.hits >= 1, 'hits restored after restart');
+  try { fs.unlinkSync(path.join(__dirname, '..', 'cache.json')); } catch {}
+});

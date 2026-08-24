@@ -74,9 +74,9 @@
   "openrouter-hermes": {
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
     "model": "cohere/north-mini-code:free",
-    "priority": 9,
+    "priority": 17,
     "dailyLimit": 50,
-    "keyHint": "openrouter.ai → Keys",
+    "keyHint": "openrouter.ai → Keys (медленный, запасной)",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
     "free": true
   },
@@ -157,9 +157,9 @@
   "nim-vision": {
     "endpoint": "https://integrate.api.nvidia.com/v1/chat/completions",
     "model": "meta/llama-3.2-11b-vision-instruct",
-    "priority": 16,
+    "priority": 18,
     "dailyLimit": 40,
-    "keyHint": "build.nvidia.com → Get API key (vision)",
+    "keyHint": "build.nvidia.com → Get API key (vision, медленный, запасной)",
     "envVar": "PROVIDER_NIM_APIKEY",
     "free": true,
     "vision": true
