@@ -1,7 +1,7 @@
 # Freegate
 
 [![CI](https://github.com/Artur21101965/davil-cod/actions/workflows/ci.yml/badge.svg)](https://github.com/Artur21101965/davil-cod/actions)
-[![Docker Hub](https://img.shields.io/docker/pulls/nik951751/davil-cod.svg)](https://hub.docker.com/r/nik951751/davil-cod)
+[![Docker Hub](https://img.shields.io/docker/pulls/nik951751/freegate.svg)](https://hub.docker.com/r/nik951751/freegate)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![npm](https://img.shields.io/npm/v/davil-cod.svg)](https://www.npmjs.com/package/davil-cod)
 
@@ -52,7 +52,7 @@ docker run -d --name davil-cod -p 4000:4000 \
   -e PROVIDER_GROQ_APIKEY=... \
   -e PROVIDER_MISTRAL_APIKEY=... \
   -e AUTH=your-secret-key \
-  nik951751/davil-cod
+  nik951751/freegate
 ```
 
 ### Подключение к любому OpenAI-клиенту
