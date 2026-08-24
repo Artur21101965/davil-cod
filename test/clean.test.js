@@ -1,7 +1,7 @@
 // test/clean.test.js — tests for think-block stripping
 const test = require('node:test');
 const assert = require('node:assert');
-const { stripThink, cleanMessage, cleanDelta } = require('../lib/clean');
+const { stripThink, cleanMessage, cleanDelta, hasContent } = require('../lib/clean');
 
 test('clean: strips <think> blocks from text', () => {
   const input = '<think>Let me reason about this carefully.</think>The answer is 42.';
@@ -59,4 +59,25 @@ test('clean: fixReasoningMessage keeps content when present', () => {
   const msg = { role: 'assistant', content: 'Hello!', reasoning: 'hidden reasoning' };
   fixReasoningMessage(msg);
   assert.strictEqual(msg.content, 'Hello!');
+});
+
+test('clean: hasContent true for real answer', () => {
+  assert.strictEqual(hasContent({ choices: [{ message: { role: 'assistant', content: 'Ответ' } }] }), true);
+});
+
+test('clean: hasContent false for empty content', () => {
+  assert.strictEqual(hasContent({ choices: [{ message: { role: 'assistant', content: '' } }] }), false);
+});
+
+test('clean: hasContent true when only reasoning present', () => {
+  assert.strictEqual(hasContent({ choices: [{ message: { role: 'assistant', content: '', reasoning: 'размышление' } }] }), true);
+});
+
+test('clean: hasContent false for whitespace-only content', () => {
+  assert.strictEqual(hasContent({ choices: [{ message: { role: 'assistant', content: '   \n  ' } }] }), false);
+});
+
+test('clean: hasContent false for missing choices', () => {
+  assert.strictEqual(hasContent({}), false);
+  assert.strictEqual(hasContent(null), false);
 });

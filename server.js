@@ -8,7 +8,7 @@ const { loadState, initHealth, isCircuitOpen, recordSuccess, recordFailure, reco
 const { checkRateLimit } = require('./lib/rateLimit');
 const { handleDashboard } = require('./lib/dashboard');
 const { acquire, stats: poolStats } = require('./lib/pool');
-const { stripThink, cleanDelta, cleanMessage, fixReasoningMessage } = require('./lib/clean');
+const { stripThink, cleanDelta, cleanMessage, fixReasoningMessage, hasContent } = require('./lib/clean');
 const { classifyComplexity, maybeUpgradeTier } = require('./lib/routing');
 const logger = require('./lib/logger');
 
@@ -388,9 +388,11 @@ async function handleChatCompletion(req, res, body) {
           }
         });
         result.stream.on('end', () => {
-          // Cache the assembled answer for repeat prompts (only if complete)
+          // Cache the assembled answer for repeat prompts (only if complete
+          // AND non-empty — empty answers must not be cached).
           if (chunks.length > 0) {
             const full = chunks.join('');
+            if (full.trim().length > 0) {
             cache.set(effectiveModel, body.messages, body.temperature, {
               id: 'chatcmpl-cached',
               object: 'chat.completion',
@@ -399,6 +401,7 @@ async function handleChatCompletion(req, res, body) {
               choices: [{ index: 0, message: { role: 'assistant', content: full }, finish_reason: 'stop' }],
               usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
             });
+            }
           }
         });
         result.stream.on('error', (err) => {
@@ -415,7 +418,7 @@ async function handleChatCompletion(req, res, body) {
             fixReasoningMessage(result.data.choices[0].message);
             cleanMessage(result.data.choices[0].message);
           }
-        cache.set(effectiveModel, body.messages, body.temperature, result.data);
+        if (hasContent(result.data)) cache.set(effectiveModel, body.messages, body.temperature, result.data);
         recordTokens(key, result.usage);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(result.data));
@@ -476,7 +479,7 @@ async function handleChatCompletion(req, res, body) {
           fixReasoningMessage(result.data.choices[0].message);
           cleanMessage(result.data.choices[0].message);
         }
-          cache.set(effectiveModel, body.messages, body.temperature, result.data);
+          if (hasContent(result.data)) cache.set(effectiveModel, body.messages, body.temperature, result.data);
           recordTokens(key, result.usage);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(result.data));
