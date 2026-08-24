@@ -1,6 +1,6 @@
 {
   "name": "davil-cod",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "Free multi-provider LLM proxy with automatic failover. One OpenAI-compatible endpoint routes to 18 free models (Groq, Mistral, Gemini, NIM, OpenRouter, ZAI). Never pay for LLMs.",
   "license": "MIT",
   "bin": {
