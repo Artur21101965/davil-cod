@@ -41,3 +41,15 @@ test('normalize: caps at MAX_LEN to bound memory', () => {
   const norm = normalizeMessages([{ role: 'user', content: long }]);
   assert.ok(norm.length <= 2000, 'normalized length bounded');
 });
+
+test('normalize: code with operators is NOT collapsed (exact match for code)', () => {
+  const a = normalizeMessages([{ role: 'user', content: 'return a+b;' }]);
+  const b = normalizeMessages([{ role: 'user', content: 'return a-b;' }]);
+  assert.notStrictEqual(a, b, 'код с разными операторами не должен коллизировать');
+});
+
+test('normalize: prose still normalizes (case/punct insensitive)', () => {
+  const a = normalizeMessages([{ role: 'user', content: 'Привет, как дела?!' }]);
+  const b = normalizeMessages([{ role: 'user', content: 'привет как дела' }]);
+  assert.strictEqual(a, b);
+});
