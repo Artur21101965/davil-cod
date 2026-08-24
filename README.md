@@ -11,11 +11,11 @@
 ## Why pay for LLMs when free ones exist?
 
 Your AI agent, bot, or script talks to a single OpenAI-compatible endpoint.
-Behind it, DAVIL Cod automatically routes requests across **18 free models**
-from Groq, Mistral, Gemini, NVIDIA NIM, OpenRouter, and ZAI. If one provider
-goes down, gets overloaded, or burns its daily limit — the request
-**instantly falls through to the next one**. You never see "rate limit",
-and you never pay.
+Behind it, DAVIL Cod automatically routes requests across **25 free models**
+from Groq, Mistral, Gemini, NVIDIA NIM, OpenRouter, ZAI, Cerebras, DeepSeek
+and local models. If one provider goes down, gets overloaded, or burns its
+daily limit — the request **instantly falls through to the next one**. You
+never see "rate limit", and you never pay.
 
 **Result:** full LLM access for everyday work at the price of **$0**.
 
@@ -25,7 +25,10 @@ and you never pay.
 
 | | |
 |---|---|
-| 🔀 **Auto-failover** | 18 providers in one chain. Provider down? The next one answers. |
+| 🔀 **Auto-failover** | 25 providers in one chain. Provider down? The next one answers. |
+| 🤖 **Self-managing models** | Auto-discovers new free models, tests them, adds working ones, disables dead ones — every 6h. |
+| 🏷️ **Model categories** | reasoning / coding / general / vision / local — the right model for the right job. |
+| 🖼️ **Two-stage vision** | Screenshot → vision model reads it → coding model answers the fix. |
 | 💰 **Free** | Free models only. The dashboard shows each provider's remaining limit. |
 | ⚡ **Smart routing** | Picks the fastest, most stable provider for every request. |
 | 🛡️ **Reliability** | Circuit breaker, request queue, auto-disable of dead providers, watchdog. |
@@ -86,12 +89,18 @@ Example for opencode (`~/.config/opencode/opencode.jsonc`):
 
 | Provider | Models | Where to get key | Limit/day |
 |----------|--------|------------------|-----------|
-| Groq | gpt-oss-120b, qwen-27b | console.groq.com | 1000 |
+| Groq | gpt-oss-120b, qwen-27b, allam-2-7b, compound | console.groq.com | 1000 |
 | Mistral | codestral, small | console.mistral.ai | 500K tok |
-| NVIDIA NIM | deepseek, llama, vision | build.nvidia.com | 40 |
+| NVIDIA NIM | llama, vision | build.nvidia.com | 40 |
 | Gemini | gemini-3.6-flash, vision | aistudio.google.com | 1500 |
-| OpenRouter | cohere-north, glm, nemotron, ox-alpha | openrouter.ai | 50-100 |
+| OpenRouter | cohere-north, glm, nemotron, ox-alpha, dots-3, lfm, laguna | openrouter.ai | 50-100 |
 | ZAI | glm-4.7-flash | open.bigmodel.cn | 1000 |
+| Cerebras | gpt-oss-120b, gemma-4-31b | cloud.cerebras.ai | 1000 |
+| DeepSeek | deepseek-v4-flash, vision | platform.deepseek.com | 1000 |
+| Local | Ollama, LM Studio | — | unlimited |
+
+**New free models are discovered, tested, and added automatically** — no need
+to watch for new releases. The model manager runs every 6 hours.
 
 > The catalog is extensible: add a model to `providers.json` and it joins the pool.
 > Providers unavailable to your key (404) are auto-disabled.
