@@ -423,6 +423,16 @@ async function handleChatCompletion(req, res, body) {
             fixReasoningMessage(result.data.choices[0].message);
             cleanMessage(result.data.choices[0].message);
           }
+        // Пустой ответ (провайдер-глитч) НЕ считается успехом — пробуем следующего.
+        if (!hasContent(result.data)) {
+          const msg = key + ': empty response';
+          errors.push(msg);
+          recordFailure(key, 0);
+          recordRequest(key, false, msg);
+          recordRecent({ model: requestedModel, provider: key, status: 204, latency: result.latency, cached: false });
+          logger.warn('Empty response, trying next provider', { key });
+          continue;
+        }
         if (hasContent(result.data)) cache.set(effectiveModel, body.messages, body.temperature, result.data);
         recordTokens(key, result.usage);
         res.writeHead(200, { 'Content-Type': 'application/json' });
