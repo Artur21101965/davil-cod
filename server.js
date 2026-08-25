@@ -8,7 +8,7 @@ const { loadState, initHealth, isCircuitOpen, recordSuccess, recordFailure, reco
 const { checkRateLimit } = require('./lib/rateLimit');
 const { handleDashboard } = require('./lib/dashboard');
 const { acquire, stats: poolStats } = require('./lib/pool');
-const { stripThink, cleanDelta, cleanMessage, fixReasoningMessage, hasContent, isTooShort, MIN_ANSWER_LEN } = require('./lib/clean');
+const { stripThink, cleanDelta, cleanMessage, fixReasoningMessage, isTooShort, MIN_ANSWER_LEN } = require('./lib/clean');
 const { classifyComplexity, maybeUpgradeTier, classifyVisionComplexity } = require('./lib/routing');
 const logger = require('./lib/logger');
 
