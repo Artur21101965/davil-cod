@@ -54,3 +54,15 @@ test('bandit: recordOutcome increments alpha on success, beta on failure', () =>
   assert.strictEqual(priors.A.a, 3); // 1 initial + 2 success
   assert.strictEqual(priors.A.b, 2); // 1 initial + 1 failure
 });
+
+test('health: bandit priors persist and update', () => {
+  const health = require('../lib/health');
+  health.recordBandit('med', 'test-key', true);
+  health.recordBandit('med', 'test-key', false);
+  const b = health.getBandit();
+  assert.strictEqual(b.med['test-key'].a, 2); // 1 initial + 1 success
+  assert.strictEqual(b.med['test-key'].b, 2); // 1 initial + 1 failure
+  assert.ok(!b.low['test-key'], 'low bucket isolated');
+});
+
+require('../lib/health')._stopTimers();
