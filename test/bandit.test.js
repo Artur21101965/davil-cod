@@ -34,6 +34,16 @@ test('bandit: pick chooses the trained-best provider', () => {
   assert.ok(aWins > 150, `A should win most, got ${aWins}/200`);
 });
 
+test('bandit: pick prefers higher-weight provider at cold start', () => {
+  // Без накопленных приоров safety-вес (скорость/штрафы) должен влиять на выбор.
+  const priors = {}; // cold start
+  let fastWins = 0;
+  for (let i = 0; i < 300; i++) {
+    if (pick([{ key: 'fast', weight: 1.0 }, { key: 'slow', weight: 0.1 }], priors) === 'fast') fastWins++;
+  }
+  assert.ok(fastWins > 220, `fast should win most at cold start, got ${fastWins}/300`);
+});
+
 test('bandit: buckets are isolated (success in low does not affect high)', () => {
   const lowPriors = { X: { a: 10, b: 1 } };
   const highPriors = { X: { a: 1, b: 1 } };

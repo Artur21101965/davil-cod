@@ -10,7 +10,7 @@ const { handleDashboard } = require('./lib/dashboard');
 const { acquire, stats: poolStats } = require('./lib/pool');
 const { stripThink, cleanDelta, cleanMessage, fixReasoningMessage, isTooShort, MIN_ANSWER_LEN } = require('./lib/clean');
 const { classifyComplexity, maybeUpgradeTier, classifyVisionComplexity } = require('./lib/routing');
-const { bucket, sampleBeta, pick: banditPick } = require('./lib/bandit');
+const { bucket, pick: banditPick } = require('./lib/bandit');
 const logger = require('./lib/logger');
 
 // Load persisted state
@@ -140,7 +140,7 @@ async function handleChatCompletion(req, res, body) {
   // Умный роутинг: сложные задачи с лёгкого тира поднимаем на более мощный.
   // Классифицируем ПОСЛЕ того, как определён requestedModel, ДО выбора провайдера.
   const complexity = classifyComplexity(body.messages);
-  const complexityBucket = bucket(complexity);
+  let complexityBucket = bucket(complexity);
   let effectiveModel = maybeUpgradeTier(requestedModel, complexity);
   let targetProviderKey = MODEL_MAP[effectiveModel] || MODEL_MAP[requestedModel] || 'zai';
   const isStreaming = body.stream === true;
@@ -212,6 +212,8 @@ async function handleChatCompletion(req, res, body) {
         // Умный vision-роутинг: скриншот с кодом/ошибкой поднимает тир.
         const vc = classifyVisionComplexity(cleaned);
         if (vc > 0) effectiveModel = maybeUpgradeTier(effectiveModel, vc);
+        // Vision-текст может изменить сложность — пересчитываем бакет.
+        complexityBucket = bucket(classifyVisionComplexity(cleaned));
         // Пересчитываем target-провайдера — vision-апгрейд мог сменить тир.
         targetProviderKey = MODEL_MAP[effectiveModel] || MODEL_MAP[requestedModel] || 'zai';
         // Replace image content with the extracted text as context,
@@ -286,15 +288,15 @@ async function handleChatCompletion(req, res, body) {
       const usedToday = getStats().providerUsage[key] || 0;
       if (usedToday >= dailyLimit * 0.9) weight *= 0.5;
       return { key, provider, weight };
-    }).sort((a, b) => b.weight - a.weight);
+    });
 
-    // Bandit weight contract: bandit's pick() does sampleBeta(a + weight, b + 1),
-    // so `weight` is ADDED to the Beta alpha prior. score/latency stays small
-    // (score 0-100 / latency 100-10000ms => weight ~0.01-1.0), which keeps prior
-    // learning (a,b ~1+) dominant. Do NOT add normalization here unless measured
-    // weights exceed ~5.
-    // Thompson sampling: рисуем сэмпл Beta(a+weight, b+1) для каждого,
-    // выбираем максимум. Приоры из бакета сложности (bandit обучается).
+    // Bandit weight contract: bandit's pick() multiplies the Beta sample by
+    // `weight`, so safety-штрафы (ratelimited ×0.05, target ×1.15) действуют и
+    // при холодном старте. score/latency держит вес ~0.01-1.0; приоры bandit'а
+    // (a,b ~1+) со временем начинают доминировать. Не добавляй нормализацию
+    // здесь, пока измеренные веса не превысят ~5.
+    // Thompson sampling: рисуем сэмпл Beta(a+1, b+1) для каждого, умножаем на
+    // weight, выбираем максимум. Приоры из бакета сложности (bandit обучается).
     const priors = getBandit()[complexityBucket] || {};
     const bestKey = banditPick(scored, priors);
     const bestProvider = scored.find((p) => p.key === bestKey);
