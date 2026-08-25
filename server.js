@@ -351,6 +351,26 @@ async function handleChatCompletion(req, res, body) {
       // provider speed. Huge latency would poison the weighted selection.
       getHealth()[key].latency = Math.min(result.latency || 0, 60000);
       getHealth()[key].lastCheck = Date.now();
+
+      // For non-stream, verify the response isn't empty BEFORE recording success.
+      if (!isStreaming && result.data) {
+        delete result.data.nvext;
+        if (result.data.choices?.[0]) {
+          fixReasoningMessage(result.data.choices[0].message);
+          cleanMessage(result.data.choices[0].message);
+        }
+        if (!hasContent(result.data)) {
+          // Пустой ответ (провайдер-глитч) НЕ считается успехом — пробуем следующего.
+          const msg = key + ': empty response';
+          errors.push(msg);
+          recordFailure(key, 0);
+          recordRequest(key, false, msg);
+          recordRecent({ model: requestedModel, provider: key, status: 204, latency: result.latency, cached: false });
+          logger.warn('Empty response, trying next provider', { key });
+          continue;
+        }
+      }
+
       recordSuccess(key);
       recordRequest(key, true);
       logger.request({ model: requestedModel, provider: key, status: 200, latency: result.latency, stream: isStreaming });
@@ -418,22 +438,8 @@ async function handleChatCompletion(req, res, body) {
       }
 
       if (!isStreaming && result.data) {
-        delete result.data.nvext;
-          if (result.data.choices?.[0]) {
-            fixReasoningMessage(result.data.choices[0].message);
-            cleanMessage(result.data.choices[0].message);
-          }
-        // Пустой ответ (провайдер-глитч) НЕ считается успехом — пробуем следующего.
-        if (!hasContent(result.data)) {
-          const msg = key + ': empty response';
-          errors.push(msg);
-          recordFailure(key, 0);
-          recordRequest(key, false, msg);
-          recordRecent({ model: requestedModel, provider: key, status: 204, latency: result.latency, cached: false });
-          logger.warn('Empty response, trying next provider', { key });
-          continue;
-        }
-        if (hasContent(result.data)) cache.set(effectiveModel, body.messages, body.temperature, result.data);
+        // content already verified non-empty above
+        cache.set(effectiveModel, body.messages, body.temperature, result.data);
         recordTokens(key, result.usage);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(result.data));
@@ -485,22 +491,31 @@ async function handleChatCompletion(req, res, body) {
         } finally {
           release();
         }
-        recordSuccess(key);
-        recordRequest(key, true);
-        recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
         if (!body.stream && result.data) {
           delete result.data.nvext;
-        if (result.data.choices?.[0]) {
-          fixReasoningMessage(result.data.choices[0].message);
-          cleanMessage(result.data.choices[0].message);
-        }
-          if (hasContent(result.data)) cache.set(effectiveModel, body.messages, body.temperature, result.data);
+          if (result.data.choices?.[0]) {
+            fixReasoningMessage(result.data.choices[0].message);
+            cleanMessage(result.data.choices[0].message);
+          }
+          if (!hasContent(result.data)) {
+            recordFailure(key, 0);
+            recordRequest(key, false, key + ': empty response (retry)');
+            logger.warn('Empty response in retry, trying next', { key });
+            continue;
+          }
+          recordSuccess(key);
+          recordRequest(key, true);
+          recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
+          cache.set(effectiveModel, body.messages, body.temperature, result.data);
           recordTokens(key, result.usage);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(result.data));
           return;
         }
         if (body.stream && result.stream) {
+          recordSuccess(key);
+          recordRequest(key, true);
+          recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
           res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
           result.stream.pipe(res);
           return;
