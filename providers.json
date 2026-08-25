@@ -374,5 +374,25 @@
     "envVar": "PROVIDER_HF_APIKEY",
     "free": true,
     "category": "general"
+  },
+  "or-minimax-m3-free": {
+    "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+    "model": "minimax/minimax-m3:free",
+    "priority": 20,
+    "dailyLimit": 50,
+    "keyHint": "openrouter.ai → Keys (автодобавлено, vision)",
+    "envVar": "PROVIDER_OPENROUTER_APIKEY",
+    "free": true,
+    "category": "vision"
+  },
+  "or-minimax-m2-7-free": {
+    "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+    "model": "minimax/minimax-m2.7:free",
+    "priority": 20,
+    "dailyLimit": 50,
+    "keyHint": "openrouter.ai → Keys (автодобавлено, reasoning)",
+    "envVar": "PROVIDER_OPENROUTER_APIKEY",
+    "free": true,
+    "category": "reasoning"
   }
 }

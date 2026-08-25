@@ -100,3 +100,46 @@
   → Добавлено рабочих: 7. Каталог обновлён.
 
 === Готово ===
+=== Freegate: автоуправление моделями ===
+Режим: AUTO-ADD (добавляю рабочие)
+
+[1/3] Проверяю существующие провайдеры...
+  ⚠️ gemini-flash: 429 — оставляю (временное)
+  ⚠️ zai: 200 — оставляю (временное)
+  ⚠️ openrouter-mistral: 429 — оставляю (временное)
+  ⚠️ or-laguna-s: 429 — оставляю (временное)
+  ⚠️ gemini-vision: 429 — оставляю (временное)
+  ⚠️ lmstudio: 0 — оставляю (временное)
+  ⚠️ cerebras-gpt: 402 no balance — оставляю (может ожить)
+  ⚠️ cerebras-gemma: 402 no balance — оставляю (может ожить)
+  ⚠️ deepseek: 200 — оставляю (временное)
+  ⚠️ deepseek-vision: 200 — оставляю (временное)
+  ⚠️ hf-Qwen3-8-2-4T-A95B: 402 no balance — оставляю (может ожить)
+  ⚠️ hf-GLM-5-2: 402 no balance — оставляю (может ожить)
+  ⚠️ hf-gemma-4-31B-it: 402 no balance — оставляю (может ожить)
+  ⚠️ hf-DeepSeek-V4-Pro: 402 no balance — оставляю (может ожить)
+  ⚠️ hf-gemma-4-26B-A4B-it: 402 no balance — оставляю (может ожить)
+  ⚠️ hf-Llama-3-1-8B-Instruct: 402 no balance — оставляю (может ожить)
+  ⚠️ hf-DeepSeek-V4-Flash: 402 no balance — оставляю (может ожить)
+  → Все существующие рабочие (или не критичные сбои)
+
+[2/3] Ищу новые бесплатные модели на OpenRouter...
+  Найдено новых: 7
+
+[2b/3] Ищу новые бесплатные модели на HuggingFace...
+  ⏭ Всего HF-кандидатов 91, тестирую первые 15
+  HF-кандидатов для теста: 15
+  Найдено новых на HF: 0
+
+[3/3] Проверяю и добавляю рабочие...
+  ❌ thinkingmachines/inkling-small:free: не прошёл тест
+  ❌ thinkingmachines/inkling:free: не прошёл тест
+  ⏭ nvidia/nemotron-3.5-content-safety:free: guardrail — пропуск
+  ✅ minimax/minimax-m3:free → or-minimax-m3-free (vision)
+  ❌ google/gemma-4-26b-a4b-it:free: не прошёл тест
+  ❌ google/gemma-4-31b-it:free: не прошёл тест
+  ✅ minimax/minimax-m2.7:free → or-minimax-m2-7-free (reasoning)
+
+  → Добавлено рабочих: 2. Каталог обновлён.
+
+=== Готово ===
