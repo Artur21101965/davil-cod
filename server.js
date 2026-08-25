@@ -8,7 +8,7 @@ const { loadState, initHealth, isCircuitOpen, recordSuccess, recordFailure, reco
 const { checkRateLimit } = require('./lib/rateLimit');
 const { handleDashboard } = require('./lib/dashboard');
 const { acquire, stats: poolStats } = require('./lib/pool');
-const { stripThink, cleanDelta, cleanMessage, fixReasoningMessage, hasContent } = require('./lib/clean');
+const { stripThink, cleanDelta, cleanMessage, fixReasoningMessage, isTooShort, MIN_ANSWER_LEN } = require('./lib/clean');
 const { classifyComplexity, maybeUpgradeTier, classifyVisionComplexity } = require('./lib/routing');
 const logger = require('./lib/logger');
 
@@ -106,16 +106,32 @@ async function checkProvider(key, provider) {
   }
 }
 
+const PROBE_CAP = 8;
+
 async function healthCheck() {
   const now = Date.now();
-  // Параллельный пробинг: все провайдеры проверяются одновременно,
-  // а не последовательно — быстрый старт и восстановление при 30+ провайдерах.
+  // Параллельный пробинг с лимитом: пакетами по PROBE_CAP, чтобы не создавать
+  // десятки одновременных fetch-запросов при 30+ провайдерах.
   const due = Object.entries(PROVIDERS)
     .filter(([key, provider]) => provider.enabled && !(healthIntervals[key] && healthIntervals[key].nextCheck > now));
-  await Promise.allSettled(due.map(([key, provider]) => checkProvider(key, provider)));
+  for (let i = 0; i < due.length; i += PROBE_CAP) {
+    const batch = due.slice(i, i + PROBE_CAP);
+    await Promise.allSettled(batch.map(([key, provider]) => checkProvider(key, provider)));
+  }
 }
 setInterval(healthCheck, 30000);
 setTimeout(healthCheck, 1000);
+
+// Извлекает все значения content из SSE-чанка. Возвращает true, если есть
+// хотя бы одно непустое (реальный токен, а не пустая дельта).
+function chunkHasToken(str) {
+  const re = /"content"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+  let m;
+  while ((m = re.exec(str)) !== null) {
+    if (m[1].trim().length > 0) return true;
+  }
+  return false;
+}
 
 // Chat completion handler
 async function handleChatCompletion(req, res, body) {
@@ -358,65 +374,149 @@ async function handleChatCompletion(req, res, body) {
           fixReasoningMessage(result.data.choices[0].message);
           cleanMessage(result.data.choices[0].message);
         }
-        if (!hasContent(result.data)) {
-          // Пустой ответ (провайдер-глитч) НЕ считается успехом — пробуем следующего.
-          const msg = key + ': empty response';
+        if (isTooShort(result.data)) {
+          // Пустой/мусорный ответ (провайдер-глитч) НЕ считается успехом — пробуем следующего.
+          const msg = key + ': empty or too short response';
           errors.push(msg);
           recordFailure(key, 0);
           recordRequest(key, false, msg);
           recordRecent({ model: requestedModel, provider: key, status: 204, latency: result.latency, cached: false });
-          logger.warn('Empty response, trying next provider', { key });
+          logger.warn('Empty or too-short response, trying next provider', { key });
           continue;
         }
       }
 
-      recordSuccess(key);
-      recordRequest(key, true);
-      logger.request({ model: requestedModel, provider: key, status: 200, latency: result.latency, stream: isStreaming });
-      recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
-      recordSelection(key, provider.model, requestedModel);
-
       if (isStreaming && result.stream) {
-        res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
-        const { Transform } = require('stream');
-        // Accumulate content deltas so we can cache the final answer for
-        // identical repeat prompts (opencode always streams).
         const chunks = [];
-        const cleaner = new Transform({
-          transform(chunk, encoding, callback) {
-            const str = chunk.toString();
-            // Collect SSE JSON payloads for caching (strip think blocks)
-            const lines = str.split('\n');
-            for (const line of lines) {
-              const m = line.match(/^data: (.+)$/);
-              if (!m || m[1].trim() === '[DONE]') continue;
-              try {
-                const obj = JSON.parse(m[1]);
-                const delta = obj.choices?.[0]?.delta?.content;
-                if (typeof delta === 'string') chunks.push(stripThink(delta, false));
-              } catch {}
+
+        // Очистка SSE-строки: убрать nvext, logprobs, think-блоки из дельт.
+        const cleanStr = (str) => str.replace(/^data: (.+)$/gm, (match, jsonStr) => {
+          if (jsonStr.trim() === '[DONE]') return match;
+          try {
+            const obj = JSON.parse(jsonStr);
+            delete obj.nvext;
+            if (obj.choices?.[0]) {
+              delete obj.choices[0].logprobs;
+              cleanDelta(obj.choices[0].delta);
             }
-            const cleaned = str.replace(/^data: (.+)$/gm, (match, jsonStr) => {
-              if (jsonStr.trim() === '[DONE]') return match;
-              try {
-                const obj = JSON.parse(jsonStr);
-                delete obj.nvext;
-                if (obj.choices?.[0]) {
-                  delete obj.choices[0].logprobs;
-                  cleanDelta(obj.choices[0].delta);
-                }
-                return 'data: ' + JSON.stringify(obj);
-              } catch { return match; }
-            });
-            callback(null, cleaned);
+            return 'data: ' + JSON.stringify(obj);
+          } catch { return match; }
+        });
+
+        // Сбор контент-токенов для кэша (strip think).
+        const collect = (str) => {
+          const lines = str.split('\n');
+          for (const line of lines) {
+            const m = line.match(/^data: (.+)$/);
+            if (!m || m[1].trim() === '[DONE]') continue;
+            try {
+              const obj = JSON.parse(m[1]);
+              const delta = obj.choices?.[0]?.delta?.content;
+              if (typeof delta === 'string') chunks.push(stripThink(delta, false));
+            } catch {}
           }
+        };
+
+        // Reasoning-модели (ox-alpha) думают 10с+ до первого токена — стримим сразу.
+        // Успех записываем ДО любого токена намеренно: fallback по таймауту 5с
+        // нанёс бы лишний дабл-счёт, если бы success фиксировался после первого токена.
+        if (provider.reasoning) {
+          res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
+          recordSuccess(key);
+          recordRequest(key, true);
+          logger.request({ model: requestedModel, provider: key, status: 200, latency: result.latency, stream: isStreaming });
+          recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
+          recordSelection(key, provider.model, requestedModel);
+          const { Transform } = require('stream');
+          const cleaner = new Transform({
+            transform(chunk, encoding, callback) {
+              const str = chunk.toString();
+              collect(str);
+              callback(null, cleanStr(str));
+            }
+          });
+          result.stream.on('end', () => {
+            const full = chunks.join('');
+            if (full.trim().length >= MIN_ANSWER_LEN) {
+              cache.set(effectiveModel, body.messages, body.temperature, {
+                id: 'chatcmpl-cached',
+                object: 'chat.completion',
+                created: Math.floor(Date.now() / 1000),
+                model: provider.model,
+                choices: [{ index: 0, message: { role: 'assistant', content: full }, finish_reason: 'stop' }],
+                usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+              });
+            }
+            res.end();
+          });
+          result.stream.on('error', (err) => { logger.error('Stream error', { key, error: err.message }); res.end(); });
+          result.stream.pipe(cleaner).pipe(res);
+          return;
+        }
+
+        // Обычные модели: буферизуем до первого токена (макс 5 сек).
+        // Заголовки не пишем сразу — если токена нет за 5 сек, fallback.
+        const rawBuf = [];
+        const firstToken = new Promise((resolve) => {
+          let done = false;
+          const timer = setTimeout(() => { if (!done) { done = true; resolve(false); } }, 5000);
+          const finish = (ok) => { if (!done) { done = true; clearTimeout(timer); resolve(ok); } };
+          result.stream.on('data', (chunk) => {
+            const str = chunk.toString();
+            rawBuf.push(str);
+            collect(str);
+            // Первый контент-токен: хотя бы одно непустое `"content":"..."` в чанке.
+            if (chunkHasToken(str)) {
+              finish(true);
+            }
+          });
+          result.stream.once('end', () => finish(false));
+          result.stream.once('error', () => finish(false));
+        });
+
+        // Клиент отключился во время ожидания первого токена — прерываем.
+        const onClientClose = () => {
+          try { result.stream.destroy(); } catch {}
+        };
+        req.once('close', onClientClose);
+
+        const gotFirst = await firstToken;
+        if (!gotFirst) {
+          const msg = key + ': no first token within 5s';
+          errors.push(msg);
+          recordFailure(key, 0);
+          recordRequest(key, false, msg);
+          recordRecent({ model: requestedModel, provider: key, status: 204, latency: result.latency, cached: false });
+          logger.warn('Streaming fallback: no first token', { key });
+          try { result.stream.destroy(); } catch {}
+          continue; // РАБОТАЕТ — мы внутри for-цикла провайдеров.
+        }
+
+        // Первый токен пришёл: пишем заголовки, промываем буфер, дальше стримим.
+        res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
+        recordSuccess(key);
+        recordRequest(key, true);
+        logger.request({ model: requestedModel, provider: key, status: 200, latency: result.latency, stream: isStreaming });
+        recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
+        recordSelection(key, provider.model, requestedModel);
+        res.on('error', (err) => {
+          logger.error('Client stream error', { key, error: err.message });
+          try { result.stream.destroy(); } catch {}
+        });
+        for (const b of rawBuf) res.write(cleanStr(b));
+        rawBuf.length = 0;
+
+        // Убираем наш 'data'-слушатель (он больше не нужен — данные уже
+        // буферизованы в rawBuf и промыты). Дальше обрабатываем вручную.
+        result.stream.removeAllListeners('data');
+        result.stream.on('data', (chunk) => {
+          const str = chunk.toString();
+          collect(str);
+          res.write(cleanStr(str));
         });
         result.stream.on('end', () => {
-          // Cache the assembled answer for repeat prompts (only if complete
-          // AND non-empty — empty answers must not be cached).
-          if (chunks.length > 0) {
-            const full = chunks.join('');
-            if (full.trim().length > 0) {
+          const full = chunks.join('');
+          if (full.trim().length >= MIN_ANSWER_LEN) {
             cache.set(effectiveModel, body.messages, body.temperature, {
               id: 'chatcmpl-cached',
               object: 'chat.completion',
@@ -425,19 +525,23 @@ async function handleChatCompletion(req, res, body) {
               choices: [{ index: 0, message: { role: 'assistant', content: full }, finish_reason: 'stop' }],
               usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
             });
-            }
           }
+          res.end();
         });
         result.stream.on('error', (err) => {
           logger.error('Stream error', { key, error: err.message });
           res.end();
         });
-        result.stream.pipe(cleaner).pipe(res);
         return;
       }
 
       if (!isStreaming && result.data) {
         // content already verified non-empty above
+        recordSuccess(key);
+        recordRequest(key, true);
+        logger.request({ model: requestedModel, provider: key, status: 200, latency: result.latency, stream: isStreaming });
+        recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
+        recordSelection(key, provider.model, requestedModel);
         cache.set(effectiveModel, body.messages, body.temperature, result.data);
         recordTokens(key, result.usage);
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -496,15 +600,16 @@ async function handleChatCompletion(req, res, body) {
             fixReasoningMessage(result.data.choices[0].message);
             cleanMessage(result.data.choices[0].message);
           }
-          if (!hasContent(result.data)) {
+          if (isTooShort(result.data)) {
             recordFailure(key, 0);
-            recordRequest(key, false, key + ': empty response (retry)');
-            logger.warn('Empty response in retry, trying next', { key });
+            recordRequest(key, false, key + ': empty or too short response (retry)');
+            logger.warn('Empty or too-short response in retry, trying next', { key });
             continue;
           }
           recordSuccess(key);
           recordRequest(key, true);
           recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
+          recordSelection(key, provider.model, requestedModel);
           cache.set(effectiveModel, body.messages, body.temperature, result.data);
           recordTokens(key, result.usage);
           res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -515,8 +620,56 @@ async function handleChatCompletion(req, res, body) {
           recordSuccess(key);
           recordRequest(key, true);
           recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
+          recordSelection(key, provider.model, requestedModel);
           res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
-          result.stream.pipe(res);
+          const chunks = [];
+          const collectRetry = (str) => {
+            const lines = str.split('\n');
+            for (const line of lines) {
+              const m = line.match(/^data: (.+)$/);
+              if (!m || m[1].trim() === '[DONE]') continue;
+              try {
+                const obj = JSON.parse(m[1]);
+                const delta = obj.choices?.[0]?.delta?.content;
+                if (typeof delta === 'string') chunks.push(stripThink(delta, false));
+              } catch {}
+            }
+          };
+          const cleanRetry = (str) => str.replace(/^data: (.+)$/gm, (match, jsonStr) => {
+            if (jsonStr.trim() === '[DONE]') return match;
+            try {
+              const obj = JSON.parse(jsonStr);
+              delete obj.nvext;
+              if (obj.choices?.[0]) {
+                delete obj.choices[0].logprobs;
+                cleanDelta(obj.choices[0].delta);
+              }
+              return 'data: ' + JSON.stringify(obj);
+            } catch { return match; }
+          });
+          result.stream.on('data', (chunk) => {
+            const str = chunk.toString();
+            collectRetry(str);
+            res.write(cleanRetry(str));
+          });
+          result.stream.on('end', () => {
+            const full = chunks.join('');
+            if (full.trim().length >= MIN_ANSWER_LEN) {
+              cache.set(effectiveModel, body.messages, body.temperature, {
+                id: 'chatcmpl-cached',
+                object: 'chat.completion',
+                created: Math.floor(Date.now() / 1000),
+                model: provider.model,
+                choices: [{ index: 0, message: { role: 'assistant', content: full }, finish_reason: 'stop' }],
+                usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+              });
+            }
+            res.end();
+          });
+          result.stream.on('error', (err) => {
+            logger.error('Stream error (retry)', { key, error: err.message });
+            res.end();
+          });
           return;
         }
       } catch (err2) {
