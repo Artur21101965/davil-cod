@@ -9,7 +9,7 @@ const { checkRateLimit } = require('./lib/rateLimit');
 const { handleDashboard } = require('./lib/dashboard');
 const { acquire, stats: poolStats } = require('./lib/pool');
 const { stripThink, cleanDelta, cleanMessage, fixReasoningMessage, hasContent } = require('./lib/clean');
-const { classifyComplexity, maybeUpgradeTier } = require('./lib/routing');
+const { classifyComplexity, maybeUpgradeTier, classifyVisionComplexity } = require('./lib/routing');
 const logger = require('./lib/logger');
 
 // Load persisted state
@@ -123,7 +123,7 @@ async function handleChatCompletion(req, res, body) {
   const requestedModel = body.model || 'tier-splus';
   // Умный роутинг: сложные задачи с лёгкого тира поднимаем на более мощный.
   // Классифицируем ПОСЛЕ того, как определён requestedModel, ДО выбора провайдера.
-  const effectiveModel = maybeUpgradeTier(requestedModel, classifyComplexity(body.messages));
+  let effectiveModel = maybeUpgradeTier(requestedModel, classifyComplexity(body.messages));
   let targetProviderKey = MODEL_MAP[effectiveModel] || MODEL_MAP[requestedModel] || 'zai';
   const isStreaming = body.stream === true;
 
@@ -191,6 +191,9 @@ async function handleChatCompletion(req, res, body) {
       const cleaned = stripThink(extracted, true);
       logger.info('Vision pipeline: скриншот распознан', { chars: cleaned.length });
       if (cleaned) {
+        // Умный vision-роутинг: скриншот с кодом/ошибкой поднимает тир.
+        const vc = classifyVisionComplexity(cleaned);
+        if (vc > 0) effectiveModel = maybeUpgradeTier(effectiveModel, vc);
         // Replace image content with the extracted text as context,
         // so the coding/general model (not vision) answers the question.
         const userMsgs = Array.isArray(body.messages) ? body.messages : [];
