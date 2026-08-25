@@ -55,9 +55,12 @@ test('routing: vision complexity empty text is 0', () => {
   assert.strictEqual(classifyVisionComplexity(null), 0);
 });
 
-test('routing: vision complexity medium for mixed text', () => {
+test('routing: vision complexity medium for long prose without code', () => {
   const { classifyVisionComplexity } = require('../lib/routing');
-  const text = 'Скриншот чата: привет, как дела? Идём гулять завтра.';
+  // Длинный прозаический текст без кода/ошибок — средняя сложность по длине.
+  const text = ('Это подробное описание встречи команды. Обсудили планы на квартал, ' +
+    'распределили задачи между участниками, договорились о сроках. ' +
+    'Затронули вопросы бюджета и приоритетов. Решили повторить через неделю. ').repeat(10);
   const score = classifyVisionComplexity(text);
-  assert.ok(score >= 0 && score <= 1, `score in range, got ${score}`);
+  assert.ok(score >= 0.15 && score <= 0.5, `expected medium [0.15,0.5], got ${score}`);
 });
