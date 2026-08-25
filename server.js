@@ -10,7 +10,7 @@ const { handleDashboard } = require('./lib/dashboard');
 const { acquire, stats: poolStats } = require('./lib/pool');
 const { stripThink, cleanDelta, cleanMessage, fixReasoningMessage, isTooShort, MIN_ANSWER_LEN } = require('./lib/clean');
 const { classifyComplexity, maybeUpgradeTier, classifyVisionComplexity } = require('./lib/routing');
-const { bucket, pick: banditPick } = require('./lib/bandit');
+const { bucket, pick: banditPick, isTransientLimit } = require('./lib/bandit');
 const logger = require('./lib/logger');
 
 // Load persisted state
@@ -441,7 +441,7 @@ async function handleChatCompletion(req, res, body) {
           });
           result.stream.on('error', (err) => {
             logger.error('Stream error', { key, error: err.message });
-            recordBandit(complexityBucket, key, false);
+            if (!isTransientLimit(err.statusCode)) recordBandit(complexityBucket, key, false);
             res.end();
           });
           result.stream.pipe(cleaner).pipe(res);
@@ -527,7 +527,7 @@ async function handleChatCompletion(req, res, body) {
         });
         result.stream.on('error', (err) => {
           logger.error('Stream error', { key, error: err.message });
-          recordBandit(complexityBucket, key, false);
+          if (!isTransientLimit(err.statusCode)) recordBandit(complexityBucket, key, false);
           res.end();
         });
         return;
@@ -551,7 +551,8 @@ async function handleChatCompletion(req, res, body) {
       const statusCode = err.statusCode || 502;
       errors.push(err.message);
       recordRequest(key, false, err.message);
-      recordBandit(complexityBucket, key, false);
+      // Временные лимиты (429/403/402) — не наказываем провайдера в bandit.
+      if (!isTransientLimit(statusCode)) recordBandit(complexityBucket, key, false);
       recordRecent({ model: requestedModel, provider: key, status: statusCode, latency: 0, cached: false });
       initHealth(key);
       // Do NOT flip provider to 'error' on a single failed request — transient
@@ -672,14 +673,14 @@ async function handleChatCompletion(req, res, body) {
           });
           result.stream.on('error', (err) => {
             logger.error('Stream error (retry)', { key, error: err.message });
-            recordBandit(complexityBucket, key, false);
+            if (!isTransientLimit(err.statusCode)) recordBandit(complexityBucket, key, false);
             res.end();
           });
           return;
         }
       } catch (err2) {
         recordRequest(key, false, err2.message);
-        recordBandit(complexityBucket, key, false);
+        if (!isTransientLimit(err2.statusCode)) recordBandit(complexityBucket, key, false);
         recordFailure(key, err2.statusCode);
       }
     }
