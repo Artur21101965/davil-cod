@@ -81,3 +81,28 @@ test('clean: hasContent false for missing choices', () => {
   assert.strictEqual(hasContent({}), false);
   assert.strictEqual(hasContent(null), false);
 });
+
+test('clean: isTooShort true for empty/1-char answers', () => {
+  const { isTooShort } = require('../lib/clean');
+  assert.strictEqual(isTooShort({ choices: [{ message: { role: 'assistant', content: '' } }] }), true);
+  assert.strictEqual(isTooShort({ choices: [{ message: { role: 'assistant', content: 'a' } }] }), true);
+  assert.strictEqual(isTooShort({ choices: [{ message: { role: 'assistant', content: 'abcd' } }] }), true);
+});
+
+test('clean: isTooShort false for 5+ char answers', () => {
+  const { isTooShort } = require('../lib/clean');
+  assert.strictEqual(isTooShort({ choices: [{ message: { role: 'assistant', content: 'abcde' } }] }), false);
+  assert.strictEqual(isTooShort({ choices: [{ message: { role: 'assistant', content: 'Ответ на вопрос' } }] }), false);
+});
+
+test('clean: isTooShort counts reasoning as content', () => {
+  const { isTooShort } = require('../lib/clean');
+  assert.strictEqual(isTooShort({ choices: [{ message: { role: 'assistant', content: '', reasoning: 'длинное размышление тут' } }] }), false);
+  assert.strictEqual(isTooShort({ choices: [{ message: { role: 'assistant', content: '', reasoning: 'ab' } }] }), true);
+});
+
+test('clean: isTooShort true for missing choices', () => {
+  const { isTooShort } = require('../lib/clean');
+  assert.strictEqual(isTooShort({}), true);
+  assert.strictEqual(isTooShort(null), true);
+});
