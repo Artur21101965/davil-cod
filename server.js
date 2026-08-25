@@ -9,7 +9,7 @@ const { checkRateLimit } = require('./lib/rateLimit');
 const { handleDashboard } = require('./lib/dashboard');
 const { acquire, stats: poolStats } = require('./lib/pool');
 const { stripThink, cleanDelta, cleanMessage, fixReasoningMessage, hasContent } = require('./lib/clean');
-const { classifyComplexity, maybeUpgradeTier } = require('./lib/routing');
+const { classifyComplexity, maybeUpgradeTier, classifyVisionComplexity } = require('./lib/routing');
 const logger = require('./lib/logger');
 
 // Load persisted state
@@ -108,12 +108,11 @@ async function checkProvider(key, provider) {
 
 async function healthCheck() {
   const now = Date.now();
-  for (const [key, provider] of Object.entries(PROVIDERS)) {
-    if (!provider.enabled) continue;
-    const interval = healthIntervals[key];
-    if (interval && interval.nextCheck > now) continue;
-    await checkProvider(key, provider);
-  }
+  // Параллельный пробинг: все провайдеры проверяются одновременно,
+  // а не последовательно — быстрый старт и восстановление при 30+ провайдерах.
+  const due = Object.entries(PROVIDERS)
+    .filter(([key, provider]) => provider.enabled && !(healthIntervals[key] && healthIntervals[key].nextCheck > now));
+  await Promise.allSettled(due.map(([key, provider]) => checkProvider(key, provider)));
 }
 setInterval(healthCheck, 30000);
 setTimeout(healthCheck, 1000);
@@ -123,7 +122,7 @@ async function handleChatCompletion(req, res, body) {
   const requestedModel = body.model || 'tier-splus';
   // Умный роутинг: сложные задачи с лёгкого тира поднимаем на более мощный.
   // Классифицируем ПОСЛЕ того, как определён requestedModel, ДО выбора провайдера.
-  const effectiveModel = maybeUpgradeTier(requestedModel, classifyComplexity(body.messages));
+  let effectiveModel = maybeUpgradeTier(requestedModel, classifyComplexity(body.messages));
   let targetProviderKey = MODEL_MAP[effectiveModel] || MODEL_MAP[requestedModel] || 'zai';
   const isStreaming = body.stream === true;
 
@@ -191,6 +190,11 @@ async function handleChatCompletion(req, res, body) {
       const cleaned = stripThink(extracted, true);
       logger.info('Vision pipeline: скриншот распознан', { chars: cleaned.length });
       if (cleaned) {
+        // Умный vision-роутинг: скриншот с кодом/ошибкой поднимает тир.
+        const vc = classifyVisionComplexity(cleaned);
+        if (vc > 0) effectiveModel = maybeUpgradeTier(effectiveModel, vc);
+        // Пересчитываем target-провайдера — vision-апгрейд мог сменить тир.
+        targetProviderKey = MODEL_MAP[effectiveModel] || MODEL_MAP[requestedModel] || 'zai';
         // Replace image content with the extracted text as context,
         // so the coding/general model (not vision) answers the question.
         const userMsgs = Array.isArray(body.messages) ? body.messages : [];
@@ -346,6 +350,26 @@ async function handleChatCompletion(req, res, body) {
       // provider speed. Huge latency would poison the weighted selection.
       getHealth()[key].latency = Math.min(result.latency || 0, 60000);
       getHealth()[key].lastCheck = Date.now();
+
+      // For non-stream, verify the response isn't empty BEFORE recording success.
+      if (!isStreaming && result.data) {
+        delete result.data.nvext;
+        if (result.data.choices?.[0]) {
+          fixReasoningMessage(result.data.choices[0].message);
+          cleanMessage(result.data.choices[0].message);
+        }
+        if (!hasContent(result.data)) {
+          // Пустой ответ (провайдер-глитч) НЕ считается успехом — пробуем следующего.
+          const msg = key + ': empty response';
+          errors.push(msg);
+          recordFailure(key, 0);
+          recordRequest(key, false, msg);
+          recordRecent({ model: requestedModel, provider: key, status: 204, latency: result.latency, cached: false });
+          logger.warn('Empty response, trying next provider', { key });
+          continue;
+        }
+      }
+
       recordSuccess(key);
       recordRequest(key, true);
       logger.request({ model: requestedModel, provider: key, status: 200, latency: result.latency, stream: isStreaming });
@@ -413,12 +437,8 @@ async function handleChatCompletion(req, res, body) {
       }
 
       if (!isStreaming && result.data) {
-        delete result.data.nvext;
-          if (result.data.choices?.[0]) {
-            fixReasoningMessage(result.data.choices[0].message);
-            cleanMessage(result.data.choices[0].message);
-          }
-        if (hasContent(result.data)) cache.set(effectiveModel, body.messages, body.temperature, result.data);
+        // content already verified non-empty above
+        cache.set(effectiveModel, body.messages, body.temperature, result.data);
         recordTokens(key, result.usage);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(result.data));
@@ -470,22 +490,31 @@ async function handleChatCompletion(req, res, body) {
         } finally {
           release();
         }
-        recordSuccess(key);
-        recordRequest(key, true);
-        recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
         if (!body.stream && result.data) {
           delete result.data.nvext;
-        if (result.data.choices?.[0]) {
-          fixReasoningMessage(result.data.choices[0].message);
-          cleanMessage(result.data.choices[0].message);
-        }
-          if (hasContent(result.data)) cache.set(effectiveModel, body.messages, body.temperature, result.data);
+          if (result.data.choices?.[0]) {
+            fixReasoningMessage(result.data.choices[0].message);
+            cleanMessage(result.data.choices[0].message);
+          }
+          if (!hasContent(result.data)) {
+            recordFailure(key, 0);
+            recordRequest(key, false, key + ': empty response (retry)');
+            logger.warn('Empty response in retry, trying next', { key });
+            continue;
+          }
+          recordSuccess(key);
+          recordRequest(key, true);
+          recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
+          cache.set(effectiveModel, body.messages, body.temperature, result.data);
           recordTokens(key, result.usage);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(result.data));
           return;
         }
         if (body.stream && result.stream) {
+          recordSuccess(key);
+          recordRequest(key, true);
+          recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
           res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
           result.stream.pipe(res);
           return;

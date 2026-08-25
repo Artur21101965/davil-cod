@@ -36,3 +36,31 @@ test('routing: maybeUpgradeTier does not downgrade heavy tiers', () => {
   const upgraded = maybeUpgradeTier('tier-splus', 0.1);
   assert.strictEqual(upgraded, 'tier-splus');
 });
+
+test('routing: vision complexity high for code screenshot text', () => {
+  const { classifyVisionComplexity } = require('../lib/routing');
+  const text = 'const x = obj.foo.bar;\nfunction handleError(err) { return err.message; }\nОшибка: TypeError';
+  assert.ok(classifyVisionComplexity(text) > 0.6, `expected >0.6, got ${classifyVisionComplexity(text)}`);
+});
+
+test('routing: vision complexity low for plain photo description', () => {
+  const { classifyVisionComplexity } = require('../lib/routing');
+  const text = 'На фото красивая гора и озеро, небо голубое, люди отдыхают на берегу';
+  assert.ok(classifyVisionComplexity(text) < 0.4, `expected <0.4, got ${classifyVisionComplexity(text)}`);
+});
+
+test('routing: vision complexity empty text is 0', () => {
+  const { classifyVisionComplexity } = require('../lib/routing');
+  assert.strictEqual(classifyVisionComplexity(''), 0);
+  assert.strictEqual(classifyVisionComplexity(null), 0);
+});
+
+test('routing: vision complexity medium for long prose without code', () => {
+  const { classifyVisionComplexity } = require('../lib/routing');
+  // Длинный прозаический текст без кода/ошибок — средняя сложность по длине.
+  const text = ('Это подробное описание встречи команды. Обсудили планы на квартал, ' +
+    'распределили задачи между участниками, договорились о сроках. ' +
+    'Затронули вопросы бюджета и приоритетов. Решили повторить через неделю. ').repeat(10);
+  const score = classifyVisionComplexity(text);
+  assert.ok(score >= 0.15 && score <= 0.5, `expected medium [0.15,0.5], got ${score}`);
+});
