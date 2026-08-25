@@ -367,6 +367,7 @@ async function handleChatCompletion(req, res, body) {
           errors.push(msg);
           recordFailure(key, 0);
           recordRequest(key, false, msg);
+          recordBandit(complexityBucket, key, false);
           recordRecent({ model: requestedModel, provider: key, status: 204, latency: result.latency, cached: false });
           logger.warn('Empty or too-short response, trying next provider', { key });
           continue;
@@ -411,6 +412,7 @@ async function handleChatCompletion(req, res, body) {
           res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
           recordSuccess(key);
           recordRequest(key, true);
+          recordBandit(complexityBucket, key, true);
           logger.request({ model: requestedModel, provider: key, status: 200, latency: result.latency, stream: isStreaming });
           recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
           recordSelection(key, provider.model, requestedModel);
@@ -473,6 +475,7 @@ async function handleChatCompletion(req, res, body) {
           errors.push(msg);
           recordFailure(key, 0);
           recordRequest(key, false, msg);
+          recordBandit(complexityBucket, key, false);
           recordRecent({ model: requestedModel, provider: key, status: 204, latency: result.latency, cached: false });
           logger.warn('Streaming fallback: no first token', { key });
           try { result.stream.destroy(); } catch {}
@@ -483,6 +486,7 @@ async function handleChatCompletion(req, res, body) {
         res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
         recordSuccess(key);
         recordRequest(key, true);
+        recordBandit(complexityBucket, key, true);
         logger.request({ model: requestedModel, provider: key, status: 200, latency: result.latency, stream: isStreaming });
         recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
         recordSelection(key, provider.model, requestedModel);
@@ -526,6 +530,7 @@ async function handleChatCompletion(req, res, body) {
         // content already verified non-empty above
         recordSuccess(key);
         recordRequest(key, true);
+        recordBandit(complexityBucket, key, true);
         logger.request({ model: requestedModel, provider: key, status: 200, latency: result.latency, stream: isStreaming });
         recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
         recordSelection(key, provider.model, requestedModel);
@@ -539,6 +544,7 @@ async function handleChatCompletion(req, res, body) {
       const statusCode = err.statusCode || 502;
       errors.push(err.message);
       recordRequest(key, false, err.message);
+      recordBandit(complexityBucket, key, false);
       recordRecent({ model: requestedModel, provider: key, status: statusCode, latency: 0, cached: false });
       initHealth(key);
       // Do NOT flip provider to 'error' on a single failed request — transient
@@ -590,11 +596,13 @@ async function handleChatCompletion(req, res, body) {
           if (isTooShort(result.data)) {
             recordFailure(key, 0);
             recordRequest(key, false, key + ': empty or too short response (retry)');
+            recordBandit(complexityBucket, key, false);
             logger.warn('Empty or too-short response in retry, trying next', { key });
             continue;
           }
           recordSuccess(key);
           recordRequest(key, true);
+          recordBandit(complexityBucket, key, true);
           recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
           recordSelection(key, provider.model, requestedModel);
           cache.set(effectiveModel, body.messages, body.temperature, result.data);
@@ -606,6 +614,7 @@ async function handleChatCompletion(req, res, body) {
         if (body.stream && result.stream) {
           recordSuccess(key);
           recordRequest(key, true);
+          recordBandit(complexityBucket, key, true);
           recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
           recordSelection(key, provider.model, requestedModel);
           res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
@@ -661,6 +670,7 @@ async function handleChatCompletion(req, res, body) {
         }
       } catch (err2) {
         recordRequest(key, false, err2.message);
+        recordBandit(complexityBucket, key, false);
         recordFailure(key, err2.statusCode);
       }
     }
