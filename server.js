@@ -122,6 +122,17 @@ async function healthCheck() {
 setInterval(healthCheck, 30000);
 setTimeout(healthCheck, 1000);
 
+// Извлекает все значения content из SSE-чанка. Возвращает true, если есть
+// хотя бы одно непустое (реальный токен, а не пустая дельта).
+function chunkHasToken(str) {
+  const re = /"content"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+  let m;
+  while ((m = re.exec(str)) !== null) {
+    if (m[1].trim().length > 0) return true;
+  }
+  return false;
+}
+
 // Chat completion handler
 async function handleChatCompletion(req, res, body) {
   const requestedModel = body.model || 'tier-splus';
@@ -377,7 +388,6 @@ async function handleChatCompletion(req, res, body) {
 
       if (isStreaming && result.stream) {
         const chunks = [];
-        let sentHeaders = false;
 
         // Очистка SSE-строки: убрать nvext, logprobs, think-блоки из дельт.
         const cleanStr = (str) => str.replace(/^data: (.+)$/gm, (match, jsonStr) => {
@@ -408,6 +418,8 @@ async function handleChatCompletion(req, res, body) {
         };
 
         // Reasoning-модели (ox-alpha) думают 10с+ до первого токена — стримим сразу.
+        // Успех записываем ДО любого токена намеренно: fallback по таймауту 5с
+        // нанёс бы лишний дабл-счёт, если бы success фиксировался после первого токена.
         if (provider.reasoning) {
           res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
           recordSuccess(key);
@@ -445,7 +457,6 @@ async function handleChatCompletion(req, res, body) {
         // Обычные модели: буферизуем до первого токена (макс 5 сек).
         // Заголовки не пишем сразу — если токена нет за 5 сек, fallback.
         const rawBuf = [];
-        let gotFirst = false;
         const firstToken = new Promise((resolve) => {
           let done = false;
           const timer = setTimeout(() => { if (!done) { done = true; resolve(false); } }, 5000);
@@ -454,8 +465,8 @@ async function handleChatCompletion(req, res, body) {
             const str = chunk.toString();
             rawBuf.push(str);
             collect(str);
-            // Первый контент-токен: `"content":"` с непустым значением.
-            if (/"content"\s*:\s*"[^"]+/.test(str) && !/"content"\s*:\s*""/.test(str)) {
+            // Первый контент-токен: хотя бы одно непустое `"content":"..."` в чанке.
+            if (chunkHasToken(str)) {
               finish(true);
             }
           });
@@ -463,7 +474,13 @@ async function handleChatCompletion(req, res, body) {
           result.stream.once('error', () => finish(false));
         });
 
-        gotFirst = await firstToken;
+        // Клиент отключился во время ожидания первого токена — прерываем.
+        const onClientClose = () => {
+          try { result.stream.destroy(); } catch {}
+        };
+        req.once('close', onClientClose);
+
+        const gotFirst = await firstToken;
         if (!gotFirst) {
           const msg = key + ': no first token within 5s';
           errors.push(msg);
@@ -476,13 +493,16 @@ async function handleChatCompletion(req, res, body) {
         }
 
         // Первый токен пришёл: пишем заголовки, промываем буфер, дальше стримим.
-        sentHeaders = true;
         res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
         recordSuccess(key);
         recordRequest(key, true);
         logger.request({ model: requestedModel, provider: key, status: 200, latency: result.latency, stream: isStreaming });
         recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
         recordSelection(key, provider.model, requestedModel);
+        res.on('error', (err) => {
+          logger.error('Client stream error', { key, error: err.message });
+          try { result.stream.destroy(); } catch {}
+        });
         for (const b of rawBuf) res.write(b);
         rawBuf.length = 0;
 
@@ -589,6 +609,7 @@ async function handleChatCompletion(req, res, body) {
           recordSuccess(key);
           recordRequest(key, true);
           recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
+          recordSelection(key, provider.model, requestedModel);
           cache.set(effectiveModel, body.messages, body.temperature, result.data);
           recordTokens(key, result.usage);
           res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -599,8 +620,56 @@ async function handleChatCompletion(req, res, body) {
           recordSuccess(key);
           recordRequest(key, true);
           recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
+          recordSelection(key, provider.model, requestedModel);
           res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
-          result.stream.pipe(res);
+          const chunks = [];
+          const collectRetry = (str) => {
+            const lines = str.split('\n');
+            for (const line of lines) {
+              const m = line.match(/^data: (.+)$/);
+              if (!m || m[1].trim() === '[DONE]') continue;
+              try {
+                const obj = JSON.parse(m[1]);
+                const delta = obj.choices?.[0]?.delta?.content;
+                if (typeof delta === 'string') chunks.push(stripThink(delta, false));
+              } catch {}
+            }
+          };
+          const cleanRetry = (str) => str.replace(/^data: (.+)$/gm, (match, jsonStr) => {
+            if (jsonStr.trim() === '[DONE]') return match;
+            try {
+              const obj = JSON.parse(jsonStr);
+              delete obj.nvext;
+              if (obj.choices?.[0]) {
+                delete obj.choices[0].logprobs;
+                cleanDelta(obj.choices[0].delta);
+              }
+              return 'data: ' + JSON.stringify(obj);
+            } catch { return match; }
+          });
+          result.stream.on('data', (chunk) => {
+            const str = chunk.toString();
+            collectRetry(str);
+            res.write(cleanRetry(str));
+          });
+          result.stream.on('end', () => {
+            const full = chunks.join('');
+            if (full.trim().length >= MIN_ANSWER_LEN) {
+              cache.set(effectiveModel, body.messages, body.temperature, {
+                id: 'chatcmpl-cached',
+                object: 'chat.completion',
+                created: Math.floor(Date.now() / 1000),
+                model: provider.model,
+                choices: [{ index: 0, message: { role: 'assistant', content: full }, finish_reason: 'stop' }],
+                usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+              });
+            }
+            res.end();
+          });
+          result.stream.on('error', (err) => {
+            logger.error('Stream error (retry)', { key, error: err.message });
+            res.end();
+          });
           return;
         }
       } catch (err2) {
