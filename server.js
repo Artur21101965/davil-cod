@@ -108,12 +108,11 @@ async function checkProvider(key, provider) {
 
 async function healthCheck() {
   const now = Date.now();
-  for (const [key, provider] of Object.entries(PROVIDERS)) {
-    if (!provider.enabled) continue;
-    const interval = healthIntervals[key];
-    if (interval && interval.nextCheck > now) continue;
-    await checkProvider(key, provider);
-  }
+  // Параллельный пробинг: все провайдеры проверяются одновременно,
+  // а не последовательно — быстрый старт и восстановление при 30+ провайдерах.
+  const due = Object.entries(PROVIDERS)
+    .filter(([key, provider]) => provider.enabled && !(healthIntervals[key] && healthIntervals[key].nextCheck > now));
+  await Promise.allSettled(due.map(([key, provider]) => checkProvider(key, provider)));
 }
 setInterval(healthCheck, 30000);
 setTimeout(healthCheck, 1000);
