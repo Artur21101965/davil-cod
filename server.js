@@ -106,13 +106,18 @@ async function checkProvider(key, provider) {
   }
 }
 
+const PROBE_CAP = 8;
+
 async function healthCheck() {
   const now = Date.now();
-  // Параллельный пробинг: все провайдеры проверяются одновременно,
-  // а не последовательно — быстрый старт и восстановление при 30+ провайдерах.
+  // Параллельный пробинг с лимитом: пакетами по PROBE_CAP, чтобы не создавать
+  // десятки одновременных fetch-запросов при 30+ провайдерах.
   const due = Object.entries(PROVIDERS)
     .filter(([key, provider]) => provider.enabled && !(healthIntervals[key] && healthIntervals[key].nextCheck > now));
-  await Promise.allSettled(due.map(([key, provider]) => checkProvider(key, provider)));
+  for (let i = 0; i < due.length; i += PROBE_CAP) {
+    const batch = due.slice(i, i + PROBE_CAP);
+    await Promise.allSettled(batch.map(([key, provider]) => checkProvider(key, provider)));
+  }
 }
 setInterval(healthCheck, 30000);
 setTimeout(healthCheck, 1000);
