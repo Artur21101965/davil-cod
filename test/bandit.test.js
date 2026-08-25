@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { bucket, sampleBeta, pick, recordOutcome } = require('../lib/bandit');
+const { bucket, sampleBeta, pick, recordOutcome, isTransientLimit } = require('../lib/bandit');
 
 test('bandit: bucket boundaries', () => {
   assert.strictEqual(bucket(0), 'low');
@@ -73,6 +73,18 @@ test('health: bandit priors persist and update', () => {
   assert.strictEqual(b.med['test-key'].a, 2); // 1 initial + 1 success
   assert.strictEqual(b.med['test-key'].b, 2); // 1 initial + 1 failure
   assert.ok(!b.low['test-key'], 'low bucket isolated');
+});
+
+test('bandit: isTransientLimit identifies rate limits', () => {
+  assert.strictEqual(isTransientLimit(429), true);
+  assert.strictEqual(isTransientLimit(403), true);
+  assert.strictEqual(isTransientLimit(402), true);
+  assert.strictEqual(isTransientLimit(401), true);
+  assert.strictEqual(isTransientLimit(500), false);
+  assert.strictEqual(isTransientLimit(502), false);
+  assert.strictEqual(isTransientLimit(0), false);
+  assert.strictEqual(isTransientLimit(null), false);
+  assert.strictEqual(isTransientLimit(undefined), false);
 });
 
 require('../lib/health')._stopTimers();
