@@ -754,6 +754,7 @@ const server = http.createServer(async (req, res) => {
       limits,
       pool: poolStats(),
       last_selection: getLastSelection(),
+      bandit: getBandit(),
     }));
     return;
   }
