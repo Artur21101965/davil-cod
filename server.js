@@ -8,7 +8,7 @@ const { loadState, initHealth, isCircuitOpen, recordSuccess, recordFailure, reco
 const { checkRateLimit } = require('./lib/rateLimit');
 const { handleDashboard } = require('./lib/dashboard');
 const { acquire, stats: poolStats } = require('./lib/pool');
-const { stripThink, cleanDelta, cleanMessage, fixReasoningMessage, hasContent } = require('./lib/clean');
+const { stripThink, cleanDelta, cleanMessage, fixReasoningMessage, hasContent, isTooShort, MIN_ANSWER_LEN } = require('./lib/clean');
 const { classifyComplexity, maybeUpgradeTier, classifyVisionComplexity } = require('./lib/routing');
 const logger = require('./lib/logger');
 
@@ -358,14 +358,14 @@ async function handleChatCompletion(req, res, body) {
           fixReasoningMessage(result.data.choices[0].message);
           cleanMessage(result.data.choices[0].message);
         }
-        if (!hasContent(result.data)) {
-          // Пустой ответ (провайдер-глитч) НЕ считается успехом — пробуем следующего.
-          const msg = key + ': empty response';
+        if (isTooShort(result.data)) {
+          // Пустой/мусорный ответ (провайдер-глитч) НЕ считается успехом — пробуем следующего.
+          const msg = key + ': empty or too short response';
           errors.push(msg);
           recordFailure(key, 0);
           recordRequest(key, false, msg);
           recordRecent({ model: requestedModel, provider: key, status: 204, latency: result.latency, cached: false });
-          logger.warn('Empty response, trying next provider', { key });
+          logger.warn('Empty or too-short response, trying next provider', { key });
           continue;
         }
       }
@@ -416,7 +416,7 @@ async function handleChatCompletion(req, res, body) {
           // AND non-empty — empty answers must not be cached).
           if (chunks.length > 0) {
             const full = chunks.join('');
-            if (full.trim().length > 0) {
+            if (full.trim().length >= MIN_ANSWER_LEN) {
             cache.set(effectiveModel, body.messages, body.temperature, {
               id: 'chatcmpl-cached',
               object: 'chat.completion',
@@ -496,10 +496,10 @@ async function handleChatCompletion(req, res, body) {
             fixReasoningMessage(result.data.choices[0].message);
             cleanMessage(result.data.choices[0].message);
           }
-          if (!hasContent(result.data)) {
+          if (isTooShort(result.data)) {
             recordFailure(key, 0);
-            recordRequest(key, false, key + ': empty response (retry)');
-            logger.warn('Empty response in retry, trying next', { key });
+            recordRequest(key, false, key + ': empty or too short response (retry)');
+            logger.warn('Empty or too-short response in retry, trying next', { key });
             continue;
           }
           recordSuccess(key);
