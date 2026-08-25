@@ -1,9 +1,9 @@
 # Freegate
 
-[![CI](https://github.com/Artur21101965/davil-cod/actions/workflows/ci.yml/badge.svg)](https://github.com/Artur21101965/davil-cod/actions)
+[![CI](https://github.com/Artur21101965/freegate/actions/workflows/ci.yml/badge.svg)](https://github.com/Artur21101965/freegate/actions)
 [![Docker Hub](https://img.shields.io/docker/pulls/nik951751/freegate.svg)](https://hub.docker.com/r/nik951751/freegate)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![npm](https://img.shields.io/npm/v/davil-cod.svg)](https://www.npmjs.com/package/davil-cod)
+[![npm](https://img.shields.io/npm/v/freegate.svg)](https://www.npmjs.com/package/freegate)
 
 **English version: [README.md](README.md)**
 
@@ -38,9 +38,9 @@ DeepSeek и локальные модели. Если один провайде�
 ## Быстрый старт — 30 секунд
 
 ```bash
-npx davil-cod init -i     # мастер спросит: пароль + ключи каждого провайдера
-npx davil-cod start       # прокси на http://localhost:4000
-npx davil-cod test        # проверить, что всё работает
+npx freegate init -i     # мастер спросит: пароль + ключи каждого провайдера
+npx freegate start       # прокси на http://localhost:4000
+npx freegate test        # проверить, что всё работает
 ```
 
 Дашборд: `http://localhost:4000/?key=твой_пароль`
@@ -48,7 +48,7 @@ npx davil-cod test        # проверить, что всё работает
 Или через Docker:
 
 ```bash
-docker run -d --name davil-cod -p 4000:4000 \
+docker run -d --name freegate -p 4000:4000 \
   -e PROVIDER_GROQ_APIKEY=... \
   -e PROVIDER_MISTRAL_APIKEY=... \
   -e AUTH=your-secret-key \
@@ -145,13 +145,13 @@ PROVIDER_ZAI_APIKEY=...        # ZAI
 ## Команды CLI
 
 ```bash
-npx davil-cod init              # создать конфиг
-npx davil-cod init -i           # интерактивный мастер (ключи, пароль)
-npx davil-cod start             # запустить прокси
-npx davil-cod status            # диагностика: провайдеры, лимиты, ошибки
-npx davil-cod test              # проверить, что работает
-npx davil-cod install-service   # автозапуск при старте системы
-npx davil-cod dashboard         # открыть дашборд
+npx freegate init              # создать конфиг
+npx freegate init -i           # интерактивный мастер (ключи, пароль)
+npx freegate start             # запустить прокси
+npx freegate status            # диагностика: провайдеры, лимиты, ошибки
+npx freegate test              # проверить, что работает
+npx freegate install-service   # автозапуск при старте системы
+npx freegate dashboard         # открыть дашборд
 ```
 
 ## FAQ

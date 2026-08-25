@@ -35,5 +35,5 @@
 
 ## Публикация
 - npm: `npm version patch && npm publish` (ключ в ~/.npmrc, bypass 2FA)
-- Docker: `docker build -t nik951751/davil-cod . && docker push`
+- Docker: `docker build -t nik951751/freegate . && docker push`
 - GitHub: `git push` (CI сам гоняет тесты + Docker)

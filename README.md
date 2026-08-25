@@ -1,10 +1,10 @@
 # Freegate
 
-[![CI](https://github.com/Artur21101965/davil-cod/actions/workflows/ci.yml/badge.svg)](https://github.com/Artur21101965/davil-cod/actions)
+[![CI](https://github.com/Artur21101965/freegate/actions/workflows/ci.yml/badge.svg)](https://github.com/Artur21101965/freegate/actions)
 [![Docker Hub](https://img.shields.io/docker/pulls/nik951751/freegate.svg)](https://hub.docker.com/r/nik951751/freegate)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![npm](https://img.shields.io/npm/v/davil-cod.svg)](https://www.npmjs.com/package/davil-cod)
-[![GitHub stars](https://img.shields.io/github/stars/Artur21101965/davil-cod?style=social)](https://github.com/Artur21101965/davil-cod)
+[![npm](https://img.shields.io/npm/v/freegate.svg)](https://www.npmjs.com/package/freegate)
+[![GitHub stars](https://img.shields.io/github/stars/Artur21101965/freegate?style=social)](https://github.com/Artur21101965/freegate)
 
 **[Русская версия](README.ru.md) · Russian version**
 
@@ -39,9 +39,9 @@ never see "rate limit", and you never pay.
 ## Quick start — 30 seconds
 
 ```bash
-npx davil-cod init -i     # wizard: password + each provider's key
-npx davil-cod start       # proxy on http://localhost:4000
-npx davil-cod test        # verify everything works
+npx freegate init -i     # wizard: password + each provider's key
+npx freegate start       # proxy on http://localhost:4000
+npx freegate test        # verify everything works
 ```
 
 Dashboard: `http://localhost:4000/?key=your_password`
@@ -49,7 +49,7 @@ Dashboard: `http://localhost:4000/?key=your_password`
 Or via Docker:
 
 ```bash
-docker run -d --name davil-cod -p 4000:4000 \
+docker run -d --name freegate -p 4000:4000 \
   -e PROVIDER_GROQ_APIKEY=... \
   -e PROVIDER_MISTRAL_APIKEY=... \
   -e AUTH=your-secret-key \
@@ -146,13 +146,13 @@ put it in `config.json` → `providers` (same format as `providers.json`).
 ## CLI commands
 
 ```bash
-npx davil-cod init              # create config
-npx davil-cod init -i           # interactive wizard (keys, password)
-npx davil-cod start             # start proxy
-npx davil-cod status            # diagnostics: providers, limits, errors
-npx davil-cod test              # verify it works
-npx davil-cod install-service   # autostart at boot
-npx davil-cod dashboard         # open dashboard
+npx freegate init              # create config
+npx freegate init -i           # interactive wizard (keys, password)
+npx freegate start             # start proxy
+npx freegate status            # diagnostics: providers, limits, errors
+npx freegate test              # verify it works
+npx freegate install-service   # autostart at boot
+npx freegate dashboard         # open dashboard
 ```
 
 ## FAQ

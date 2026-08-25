@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// bin/davil-cod.js — CLI wrapper + interactive setup wizard
+// bin/freegate.js — CLI wrapper + interactive setup wizard
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
@@ -74,7 +74,7 @@ async function initWizard() {
 
   const filled = Object.values(keys).filter(Boolean).length;
   console.log(`\nГотово! Провайдеров с ключами: ${filled} из ${envVars.size}`);
-  console.log(`Запуск: npx davil-cod start  (пароль: ${authKey})`);
+  console.log(`Запуск: npx freegate start  (пароль: ${authKey})`);
 }
 
 function copyExample(name, example) {
@@ -95,8 +95,8 @@ if (cmd === 'init') {
     // Non-interactive fallback: plain copy (safe — never overwrites)
     copyExample('config.json', 'config.example.json');
     copyExample('.env', '.env.example');
-    console.log('\nГотово! Заполни .env ключами, затем: npx davil-cod start');
-    console.log('Совет: npx davil-cod init -i — интерактивный мастер с вопросами.');
+    console.log('\nГотово! Заполни .env ключами, затем: npx freegate start');
+    console.log('Совет: npx freegate init -i — интерактивный мастер с вопросами.');
   }
 } else if (cmd === 'start') {
   // Spawn from the user's cwd (not package dir) so server.js picks up their
@@ -150,10 +150,10 @@ RestartSec=5
 [Install]
 WantedBy=default.target
 `;
-    const unitPath = path.join(os.homedir(), '.config', 'systemd', 'user', 'davil-cod.service');
+    const unitPath = path.join(os.homedir(), '.config', 'systemd', 'user', 'freegate.service');
     fs.mkdirSync(path.dirname(unitPath), { recursive: true });
     fs.writeFileSync(unitPath, unit);
-    execSync(`systemctl --user daemon-reload && systemctl --user enable davil-cod && systemctl --user start davil-cod`);
+    execSync(`systemctl --user daemon-reload && systemctl --user enable freegate && systemctl --user start freegate`);
     console.log('✅ Служба автозапуска установлена (systemd)');
   }
 } else if (cmd === 'dashboard') {
@@ -174,7 +174,7 @@ WantedBy=default.target
     });
   }).on('error', (err) => {
     console.log('❌ Прокси не запущен на ' + base);
-    console.log('   Запусти: npx davil-cod start');
+    console.log('   Запусти: npx freegate start');
     process.exit(1);
   });
 } else if (cmd === 'status') {
@@ -189,7 +189,7 @@ WantedBy=default.target
     res.on('end', () => {
       if (res.statusCode !== 200) {
         console.log('❌ Прокси не отвечает (HTTP ' + res.statusCode + ')');
-        console.log('   Запусти: npx davil-cod start');
+        console.log('   Запусти: npx freegate start');
         process.exit(1);
       }
       try {
@@ -211,7 +211,7 @@ WantedBy=default.target
     });
   }).on('error', () => {
     console.log('❌ Прокси не запущен на ' + base);
-    console.log('   Запусти: npx davil-cod start');
+    console.log('   Запусти: npx freegate start');
     process.exit(1);
   });
 } else if (cmd === 'version' || cmd === '-v' || cmd === '--version') {
@@ -220,10 +220,10 @@ WantedBy=default.target
 } else {
   console.log('Freegate — бесплатный LLM-прокси с failover');
   console.log('Команды:');
-  console.log('  npx davil-cod init       интерактивная настройка (ключи, пароль)');
-  console.log('  npx davil-cod start      запустить прокси');
-  console.log('  npx davil-cod status     диагностика: провайдеры, лимиты, ошибки');
-  console.log('  npx davil-cod test       проверить, что прокси работает');
-  console.log('  npx davil-cod dashboard  открыть дашборд');
-  console.log('  npx davil-cod install-service  автозапуск при старте системы');
+  console.log('  npx freegate init       интерактивная настройка (ключи, пароль)');
+  console.log('  npx freegate start      запустить прокси');
+  console.log('  npx freegate status     диагностика: провайдеры, лимиты, ошибки');
+  console.log('  npx freegate test       проверить, что прокси работает');
+  console.log('  npx freegate dashboard  открыть дашборд');
+  console.log('  npx freegate install-service  автозапуск при старте системы');
 }

@@ -1,7 +1,7 @@
 services:
-  davil-cod:
-    image: nik951751/davil-cod:latest
-    container_name: davil-cod
+  freegate:
+    image: nik951751/freegate:latest
+    container_name: freegate
     restart: unless-stopped
     ports:
       - "4000:4000"

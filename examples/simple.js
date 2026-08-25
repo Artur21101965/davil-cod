@@ -1,6 +1,6 @@
 // Простой Node.js скрипт через Freegate.
 // Запуск: node examples/simple.js
-// Прокси должен быть запущен: npx davil-cod start
+// Прокси должен быть запущен: npx freegate start
 
 const AUTH = process.env.FREEGATE_AUTH || 'твой_пароль';
 
@@ -25,6 +25,6 @@ async function main() {
 
 main().catch((e) => {
   console.error('Ошибка:', e.message);
-  console.error('Запусти прокси: npx davil-cod start');
+  console.error('Запусти прокси: npx freegate start');
   process.exit(1);
 });

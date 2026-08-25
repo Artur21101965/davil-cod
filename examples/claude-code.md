@@ -5,7 +5,7 @@ Claude Code (CLI от Anthropic) поддерживает OpenAI-совмест�
 
 ## Настройка
 
-1. Запусти прокси: `npx davil-cod start`
+1. Запусти прокси: `npx freegate start`
 2. Задай переменные окружения перед запуском `claude`:
 
 ```bash
