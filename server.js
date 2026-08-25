@@ -503,7 +503,7 @@ async function handleChatCompletion(req, res, body) {
           logger.error('Client stream error', { key, error: err.message });
           try { result.stream.destroy(); } catch {}
         });
-        for (const b of rawBuf) res.write(b);
+        for (const b of rawBuf) res.write(cleanStr(b));
         rawBuf.length = 0;
 
         // Убираем наш 'data'-слушатель (он больше не нужен — данные уже
