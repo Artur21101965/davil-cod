@@ -382,46 +382,117 @@ async function handleChatCompletion(req, res, body) {
       recordSelection(key, provider.model, requestedModel);
 
       if (isStreaming && result.stream) {
-        res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
-        const { Transform } = require('stream');
-        // Accumulate content deltas so we can cache the final answer for
-        // identical repeat prompts (opencode always streams).
         const chunks = [];
-        const cleaner = new Transform({
-          transform(chunk, encoding, callback) {
-            const str = chunk.toString();
-            // Collect SSE JSON payloads for caching (strip think blocks)
-            const lines = str.split('\n');
-            for (const line of lines) {
-              const m = line.match(/^data: (.+)$/);
-              if (!m || m[1].trim() === '[DONE]') continue;
-              try {
-                const obj = JSON.parse(m[1]);
-                const delta = obj.choices?.[0]?.delta?.content;
-                if (typeof delta === 'string') chunks.push(stripThink(delta, false));
-              } catch {}
+        let sentHeaders = false;
+
+        // Очистка SSE-строки: убрать nvext, logprobs, think-блоки из дельт.
+        const cleanStr = (str) => str.replace(/^data: (.+)$/gm, (match, jsonStr) => {
+          if (jsonStr.trim() === '[DONE]') return match;
+          try {
+            const obj = JSON.parse(jsonStr);
+            delete obj.nvext;
+            if (obj.choices?.[0]) {
+              delete obj.choices[0].logprobs;
+              cleanDelta(obj.choices[0].delta);
             }
-            const cleaned = str.replace(/^data: (.+)$/gm, (match, jsonStr) => {
-              if (jsonStr.trim() === '[DONE]') return match;
-              try {
-                const obj = JSON.parse(jsonStr);
-                delete obj.nvext;
-                if (obj.choices?.[0]) {
-                  delete obj.choices[0].logprobs;
-                  cleanDelta(obj.choices[0].delta);
-                }
-                return 'data: ' + JSON.stringify(obj);
-              } catch { return match; }
-            });
-            callback(null, cleaned);
-          }
+            return 'data: ' + JSON.stringify(obj);
+          } catch { return match; }
         });
-        result.stream.on('end', () => {
-          // Cache the assembled answer for repeat prompts (only if complete
-          // AND non-empty — empty answers must not be cached).
-          if (chunks.length > 0) {
+
+        // Сбор контент-токенов для кэша (strip think).
+        const collect = (str) => {
+          const lines = str.split('\n');
+          for (const line of lines) {
+            const m = line.match(/^data: (.+)$/);
+            if (!m || m[1].trim() === '[DONE]') continue;
+            try {
+              const obj = JSON.parse(m[1]);
+              const delta = obj.choices?.[0]?.delta?.content;
+              if (typeof delta === 'string') chunks.push(stripThink(delta, false));
+            } catch {}
+          }
+        };
+
+        // Reasoning-модели (ox-alpha) думают 10с+ до первого токена — стримим сразу.
+        if (provider.reasoning) {
+          res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
+          const { Transform } = require('stream');
+          const cleaner = new Transform({
+            transform(chunk, encoding, callback) {
+              const str = chunk.toString();
+              collect(str);
+              callback(null, cleanStr(str));
+            }
+          });
+          result.stream.on('end', () => {
             const full = chunks.join('');
             if (full.trim().length >= MIN_ANSWER_LEN) {
+              cache.set(effectiveModel, body.messages, body.temperature, {
+                id: 'chatcmpl-cached',
+                object: 'chat.completion',
+                created: Math.floor(Date.now() / 1000),
+                model: provider.model,
+                choices: [{ index: 0, message: { role: 'assistant', content: full }, finish_reason: 'stop' }],
+                usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+              });
+            }
+            res.end();
+          });
+          result.stream.on('error', (err) => { logger.error('Stream error', { key, error: err.message }); res.end(); });
+          result.stream.pipe(cleaner).pipe(res);
+          return;
+        }
+
+        // Обычные модели: буферизуем до первого токена (макс 5 сек).
+        // Заголовки не пишем сразу — если токена нет за 5 сек, fallback.
+        const rawBuf = [];
+        let gotFirst = false;
+        const firstToken = new Promise((resolve) => {
+          let done = false;
+          const timer = setTimeout(() => { if (!done) { done = true; resolve(false); } }, 5000);
+          const finish = (ok) => { if (!done) { done = true; clearTimeout(timer); resolve(ok); } };
+          result.stream.on('data', (chunk) => {
+            const str = chunk.toString();
+            rawBuf.push(str);
+            collect(str);
+            // Первый контент-токен: `"content":"` с непустым значением.
+            if (/"content"\s*:\s*"[^"]+/.test(str) && !/"content"\s*:\s*""/.test(str)) {
+              finish(true);
+            }
+          });
+          result.stream.once('end', () => finish(false));
+          result.stream.once('error', () => finish(false));
+        });
+
+        gotFirst = await firstToken;
+        if (!gotFirst) {
+          const msg = key + ': no first token within 5s';
+          errors.push(msg);
+          recordFailure(key, 0);
+          recordRequest(key, false, msg);
+          recordRecent({ model: requestedModel, provider: key, status: 204, latency: result.latency, cached: false });
+          logger.warn('Streaming fallback: no first token', { key });
+          try { result.stream.destroy(); } catch {}
+          continue; // РАБОТАЕТ — мы внутри for-цикла провайдеров.
+        }
+
+        // Первый токен пришёл: пишем заголовки, промываем буфер, дальше стримим.
+        sentHeaders = true;
+        res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
+        for (const b of rawBuf) res.write(b);
+        rawBuf.length = 0;
+
+        // Убираем наш 'data'-слушатель (он больше не нужен — данные уже
+        // буферизованы в rawBuf и промыты). Дальше обрабатываем вручную.
+        result.stream.removeAllListeners('data');
+        result.stream.on('data', (chunk) => {
+          const str = chunk.toString();
+          collect(str);
+          res.write(cleanStr(str));
+        });
+        result.stream.on('end', () => {
+          const full = chunks.join('');
+          if (full.trim().length >= MIN_ANSWER_LEN) {
             cache.set(effectiveModel, body.messages, body.temperature, {
               id: 'chatcmpl-cached',
               object: 'chat.completion',
@@ -430,14 +501,13 @@ async function handleChatCompletion(req, res, body) {
               choices: [{ index: 0, message: { role: 'assistant', content: full }, finish_reason: 'stop' }],
               usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
             });
-            }
           }
+          res.end();
         });
         result.stream.on('error', (err) => {
           logger.error('Stream error', { key, error: err.message });
           res.end();
         });
-        result.stream.pipe(cleaner).pipe(res);
         return;
       }
 
