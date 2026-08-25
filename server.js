@@ -4,12 +4,13 @@ const fs = require('fs');
 const path = require('path');
 const { LRUCache } = require('./lib/cache');
 const { PROVIDERS, MODEL_MAP, callProvider } = require('./lib/providers');
-const { loadState, initHealth, isCircuitOpen, recordSuccess, recordFailure, recordRequest, recordTokens, getHealth, getStats, recordRecent, recordRpm, getRecent, getRpm, recordSelection, getLastSelection } = require('./lib/health');
+const { loadState, initHealth, isCircuitOpen, recordSuccess, recordFailure, recordRequest, recordTokens, getHealth, getStats, recordRecent, recordRpm, getRecent, getRpm, recordSelection, getLastSelection, getBandit, recordBandit } = require('./lib/health');
 const { checkRateLimit } = require('./lib/rateLimit');
 const { handleDashboard } = require('./lib/dashboard');
 const { acquire, stats: poolStats } = require('./lib/pool');
 const { stripThink, cleanDelta, cleanMessage, fixReasoningMessage, isTooShort, MIN_ANSWER_LEN } = require('./lib/clean');
 const { classifyComplexity, maybeUpgradeTier, classifyVisionComplexity } = require('./lib/routing');
+const { bucket, sampleBeta, pick: banditPick } = require('./lib/bandit');
 const logger = require('./lib/logger');
 
 // Load persisted state
@@ -138,7 +139,9 @@ async function handleChatCompletion(req, res, body) {
   const requestedModel = body.model || 'tier-splus';
   // Умный роутинг: сложные задачи с лёгкого тира поднимаем на более мощный.
   // Классифицируем ПОСЛЕ того, как определён requestedModel, ДО выбора провайдера.
-  let effectiveModel = maybeUpgradeTier(requestedModel, classifyComplexity(body.messages));
+  const complexity = classifyComplexity(body.messages);
+  const complexityBucket = bucket(complexity);
+  let effectiveModel = maybeUpgradeTier(requestedModel, complexity);
   let targetProviderKey = MODEL_MAP[effectiveModel] || MODEL_MAP[requestedModel] || 'zai';
   const isStreaming = body.stream === true;
 
@@ -274,47 +277,29 @@ async function handleChatCompletion(req, res, body) {
     const scored = pool.map(([key, provider]) => {
       const h = getHealth()[key];
       let score = h.score || 50;
-      // Latency is only reliable after real requests; unmeasured/zero latency
-      // must NOT balloon a provider's weight. Treat <100ms as neutral.
       const rawLat = h.latency || 0;
       const lat = rawLat > 0 ? Math.max(rawLat, 100) : 500;
       let weight = score / lat;
-      // Rate-limited providers are last resort — heavy penalty
       if (h.status === 'ratelimited') weight *= 0.05;
-      // Mapped (target) provider gets a SLIGHT preference, but the pool must
-      // still be able to pick faster/healthier providers for tier aliases —
-      // otherwise Freegate always routes tier-s to Codestral and never varies.
       if (key === targetProviderKey) weight *= 1.15;
       const dailyLimit = provider.dailyLimit || 1000;
       const usedToday = getStats().providerUsage[key] || 0;
       if (usedToday >= dailyLimit * 0.9) weight *= 0.5;
-      // Providers with a history of failures lose weight (stability first).
-      // Use TODAY's failure count (reliability.fail) so overloaded providers
-      // are excluded now but recover next day. Heavy count → near-exclusion.
-      const relToday = getStats().reliability?.[key];
-      const todayFails = relToday?.day === today ? (relToday.fail || 0) : 0;
-      if (todayFails > 5) weight *= 0.4;
-      if (todayFails > 20) weight *= 0.05;
-      // Today's reliability: providers that have been 100% successful get a boost
-      const rel = getStats().reliability?.[key];
-      if (rel && rel.success + rel.fail >= 3) {
-        const ratio = rel.success / (rel.success + rel.fail);
-        if (ratio === 1) weight *= 1.3;
-        else if (ratio < 0.5) weight *= 0.5;
-      }
       return { key, provider, weight };
     }).sort((a, b) => b.weight - a.weight);
 
-    const totalWeight = scored.reduce((s, p) => s + p.weight, 0);
-    // Weighted random: pick ONE provider as the starting candidate. The rest
-    // are kept as fallbacks below. (Bugfix: was assigning the whole `scored`
-    // list, which made the first (heaviest) provider win every time.)
-    let r = Math.random() * totalWeight;
-    for (const p of scored) {
-      r -= p.weight;
-      if (r <= 0) { selected = [p]; break; }
-    }
-    if (selected.length === 0) selected = [scored[0]];
+    // Bandit weight contract: bandit's pick() does sampleBeta(a + weight, b + 1),
+    // so `weight` is ADDED to the Beta alpha prior. score/latency stays small
+    // (score 0-100 / latency 100-10000ms => weight ~0.01-1.0), which keeps prior
+    // learning (a,b ~1+) dominant. Do NOT add normalization here unless measured
+    // weights exceed ~5.
+    // Thompson sampling: рисуем сэмпл Beta(a+weight, b+1) для каждого,
+    // выбираем максимум. Приоры из бакета сложности (bandit обучается).
+    const priors = getBandit()[complexityBucket] || {};
+    const bestKey = banditPick(scored, priors);
+    const bestProvider = scored.find((p) => p.key === bestKey);
+    if (bestProvider) selected = [bestProvider];
+    else if (scored.length > 0) selected = [scored[0]];
   }
 
   // Weighted-random picked ONE provider as the primary; append the rest of the
