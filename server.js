@@ -375,12 +375,6 @@ async function handleChatCompletion(req, res, body) {
         }
       }
 
-      recordSuccess(key);
-      recordRequest(key, true);
-      logger.request({ model: requestedModel, provider: key, status: 200, latency: result.latency, stream: isStreaming });
-      recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
-      recordSelection(key, provider.model, requestedModel);
-
       if (isStreaming && result.stream) {
         const chunks = [];
         let sentHeaders = false;
@@ -416,6 +410,11 @@ async function handleChatCompletion(req, res, body) {
         // Reasoning-модели (ox-alpha) думают 10с+ до первого токена — стримим сразу.
         if (provider.reasoning) {
           res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
+          recordSuccess(key);
+          recordRequest(key, true);
+          logger.request({ model: requestedModel, provider: key, status: 200, latency: result.latency, stream: isStreaming });
+          recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
+          recordSelection(key, provider.model, requestedModel);
           const { Transform } = require('stream');
           const cleaner = new Transform({
             transform(chunk, encoding, callback) {
@@ -479,6 +478,11 @@ async function handleChatCompletion(req, res, body) {
         // Первый токен пришёл: пишем заголовки, промываем буфер, дальше стримим.
         sentHeaders = true;
         res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
+        recordSuccess(key);
+        recordRequest(key, true);
+        logger.request({ model: requestedModel, provider: key, status: 200, latency: result.latency, stream: isStreaming });
+        recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
+        recordSelection(key, provider.model, requestedModel);
         for (const b of rawBuf) res.write(b);
         rawBuf.length = 0;
 
@@ -513,6 +517,11 @@ async function handleChatCompletion(req, res, body) {
 
       if (!isStreaming && result.data) {
         // content already verified non-empty above
+        recordSuccess(key);
+        recordRequest(key, true);
+        logger.request({ model: requestedModel, provider: key, status: 200, latency: result.latency, stream: isStreaming });
+        recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
+        recordSelection(key, provider.model, requestedModel);
         cache.set(effectiveModel, body.messages, body.temperature, result.data);
         recordTokens(key, result.usage);
         res.writeHead(200, { 'Content-Type': 'application/json' });
