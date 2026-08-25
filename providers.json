@@ -304,5 +304,75 @@
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
     "free": true,
     "category": "vision"
+  },
+  "hf-Qwen3-8-2-4T-A95B": {
+    "endpoint": "https://router.huggingface.co/v1/chat/completions",
+    "model": "Qwen/Qwen3.8-2.4T-A95B",
+    "priority": 20,
+    "dailyLimit": 200,
+    "keyHint": "huggingface.co → Settings → Tokens (автодобавлено, general)",
+    "envVar": "PROVIDER_HF_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "hf-GLM-5-2": {
+    "endpoint": "https://router.huggingface.co/v1/chat/completions",
+    "model": "zai-org/GLM-5.2",
+    "priority": 20,
+    "dailyLimit": 200,
+    "keyHint": "huggingface.co → Settings → Tokens (автодобавлено, general)",
+    "envVar": "PROVIDER_HF_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "hf-gemma-4-31B-it": {
+    "endpoint": "https://router.huggingface.co/v1/chat/completions",
+    "model": "google/gemma-4-31B-it",
+    "priority": 20,
+    "dailyLimit": 200,
+    "keyHint": "huggingface.co → Settings → Tokens (автодобавлено, general)",
+    "envVar": "PROVIDER_HF_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "hf-DeepSeek-V4-Pro": {
+    "endpoint": "https://router.huggingface.co/v1/chat/completions",
+    "model": "deepseek-ai/DeepSeek-V4-Pro",
+    "priority": 20,
+    "dailyLimit": 200,
+    "keyHint": "huggingface.co → Settings → Tokens (автодобавлено, general)",
+    "envVar": "PROVIDER_HF_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "hf-gemma-4-26B-A4B-it": {
+    "endpoint": "https://router.huggingface.co/v1/chat/completions",
+    "model": "google/gemma-4-26B-A4B-it",
+    "priority": 20,
+    "dailyLimit": 200,
+    "keyHint": "huggingface.co → Settings → Tokens (автодобавлено, general)",
+    "envVar": "PROVIDER_HF_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "hf-Llama-3-1-8B-Instruct": {
+    "endpoint": "https://router.huggingface.co/v1/chat/completions",
+    "model": "meta-llama/Llama-3.1-8B-Instruct",
+    "priority": 20,
+    "dailyLimit": 200,
+    "keyHint": "huggingface.co → Settings → Tokens (автодобавлено, general)",
+    "envVar": "PROVIDER_HF_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "hf-DeepSeek-V4-Flash": {
+    "endpoint": "https://router.huggingface.co/v1/chat/completions",
+    "model": "deepseek-ai/DeepSeek-V4-Flash",
+    "priority": 20,
+    "dailyLimit": 200,
+    "keyHint": "huggingface.co → Settings → Tokens (автодобавлено, general)",
+    "envVar": "PROVIDER_HF_APIKEY",
+    "free": true,
+    "category": "general"
   }
 }

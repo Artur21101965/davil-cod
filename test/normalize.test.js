@@ -53,3 +53,37 @@ test('normalize: prose still normalizes (case/punct insensitive)', () => {
   const b = normalizeMessages([{ role: 'user', content: 'привет как дела' }]);
   assert.strictEqual(a, b);
 });
+
+test('normalize: same short command in DIFFERENT dialogs differs (context included)', () => {
+  // «продолжай» в разных диалогах с разным ассистентским контекстом НЕ должен
+  // схлопываться в один кэш-ключ — иначе вернётся чужой старый ответ.
+  const dialogA = [
+    { role: 'user', content: 'как работает phoneinfoga?' },
+    { role: 'assistant', content: 'PhoneInfoga сканирует номера.' },
+    { role: 'user', content: 'продолжай' },
+  ];
+  const dialogB = [
+    { role: 'user', content: 'статус PH-лаунча?' },
+    { role: 'assistant', content: 'Итоговая таблица готова.' },
+    { role: 'user', content: 'продолжай' },
+  ];
+  assert.notStrictEqual(
+    normalizeMessages(dialogA),
+    normalizeMessages(dialogB),
+    'одинаковая команда в разных диалогах должна давать разные ключи'
+  );
+});
+
+test('normalize: same command in SAME dialog matches', () => {
+  const dialog = [
+    { role: 'user', content: 'что происходит?' },
+    { role: 'assistant', content: 'Идёт лаунч PolyCopy.' },
+    { role: 'user', content: 'продолжай' },
+  ];
+  const same = JSON.parse(JSON.stringify(dialog));
+  assert.strictEqual(
+    normalizeMessages(dialog),
+    normalizeMessages(same),
+    'одинаковый диалог даёт одинаковый ключ'
+  );
+});
