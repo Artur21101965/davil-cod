@@ -194,6 +194,8 @@ async function handleChatCompletion(req, res, body) {
         // Умный vision-роутинг: скриншот с кодом/ошибкой поднимает тир.
         const vc = classifyVisionComplexity(cleaned);
         if (vc > 0) effectiveModel = maybeUpgradeTier(effectiveModel, vc);
+        // Пересчитываем target-провайдера — vision-апгрейд мог сменить тир.
+        targetProviderKey = MODEL_MAP[effectiveModel] || MODEL_MAP[requestedModel] || 'zai';
         // Replace image content with the extracted text as context,
         // so the coding/general model (not vision) answers the question.
         const userMsgs = Array.isArray(body.messages) ? body.messages : [];
