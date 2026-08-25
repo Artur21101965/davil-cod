@@ -412,7 +412,6 @@ async function handleChatCompletion(req, res, body) {
           res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
           recordSuccess(key);
           recordRequest(key, true);
-          recordBandit(complexityBucket, key, true);
           logger.request({ model: requestedModel, provider: key, status: 200, latency: result.latency, stream: isStreaming });
           recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
           recordSelection(key, provider.model, requestedModel);
@@ -426,6 +425,8 @@ async function handleChatCompletion(req, res, body) {
           });
           result.stream.on('end', () => {
             const full = chunks.join('');
+            // Bandit учится по качеству: пустой/мусорный стрим = фейл.
+            recordBandit(complexityBucket, key, full.trim().length >= MIN_ANSWER_LEN);
             if (full.trim().length >= MIN_ANSWER_LEN) {
               cache.set(effectiveModel, body.messages, body.temperature, {
                 id: 'chatcmpl-cached',
@@ -438,7 +439,11 @@ async function handleChatCompletion(req, res, body) {
             }
             res.end();
           });
-          result.stream.on('error', (err) => { logger.error('Stream error', { key, error: err.message }); res.end(); });
+          result.stream.on('error', (err) => {
+            logger.error('Stream error', { key, error: err.message });
+            recordBandit(complexityBucket, key, false);
+            res.end();
+          });
           result.stream.pipe(cleaner).pipe(res);
           return;
         }
