@@ -12,6 +12,7 @@ const { stripThink, cleanDelta, cleanMessage, fixReasoningMessage, isTooShort, M
 const { classifyComplexity, maybeUpgradeTier, classifyVisionComplexity } = require('./lib/routing');
 const { bucket, pick: banditPick, isTransientLimit } = require('./lib/bandit');
 const logger = require('./lib/logger');
+const { KEY_GROUPS, readKeys, saveKeys, validateKey } = require('./lib/setup');
 
 // Load persisted state
 loadState();
@@ -885,6 +886,76 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: { message: 'Invalid request: ' + e.message } }));
       }
+    });
+    return;
+  }
+
+  // --- Setup Dashboard API ---
+  if (parsedUrl.pathname === '/v1/setup/keys' && req.method === 'GET') {
+    const { keys } = readKeys();
+    // Mask keys: show first 4 + last 4 chars, mask middle
+    const masked = {};
+    for (const [k, v] of Object.entries(keys)) {
+      if (!v) { masked[k] = ''; continue; }
+      if (v.length <= 10) { masked[k] = v.slice(0, 2) + '***' + v.slice(-2); continue; }
+      masked[k] = v.slice(0, 4) + '***' + v.slice(-4);
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ groups: KEY_GROUPS, keys: masked }));
+    return;
+  }
+
+  if (parsedUrl.pathname === '/v1/setup/keys' && req.method === 'POST') {
+    if (AUTH_KEY) {
+      const apiKey = (req.headers.authorization || '').replace('Bearer ', '').trim();
+      const keyFromQuery = parsedUrl.searchParams.get('key');
+      if (apiKey !== AUTH_KEY && keyFromQuery !== AUTH_KEY) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'Invalid API key' } }));
+        return;
+      }
+    }
+    let body = '';
+    req.on('data', (c) => body += c);
+    req.on('end', () => {
+      try {
+        const newKeys = JSON.parse(body);
+        // Only accept known env vars
+        const filtered = {};
+        for (const k of Object.keys(KEY_GROUPS)) {
+          if (typeof newKeys[k] === 'string') filtered[k] = newKeys[k];
+        }
+        const result = saveKeys(filtered);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, ...result }));
+      } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'Invalid request: ' + e.message } }));
+      }
+    });
+    return;
+  }
+
+  if (parsedUrl.pathname === '/v1/setup/validate') {
+    if (AUTH_KEY) {
+      const apiKey = (req.headers.authorization || '').replace('Bearer ', '').trim();
+      const keyFromQuery = parsedUrl.searchParams.get('key');
+      if (apiKey !== AUTH_KEY && keyFromQuery !== AUTH_KEY) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'Invalid API key' } }));
+        return;
+      }
+    }
+    const envVar = parsedUrl.searchParams.get('envVar');
+    const testKey = parsedUrl.searchParams.get('apiKey');
+    if (!envVar || !testKey) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'envVar and apiKey required' } }));
+      return;
+    }
+    validateKey(envVar, testKey).then((result) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
     });
     return;
   }
