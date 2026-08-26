@@ -66,9 +66,10 @@ async function testModel(endpoint, model, apiKey, timeout = 25000) {
       signal: AbortSignal.timeout(timeout),
     });
     if (!res.ok) return { ok: false, status: res.status };
-    const data = await res.json();
-    const has = data.choices?.[0]?.message?.content || data.choices?.[0]?.message?.reasoning;
-    return { ok: Boolean(has), status: res.status };
+    // HTTP 200 = провайдер жив. Content может быть пустым при max_tokens:5
+    // (короткий ответ на "hi") — это не значит, что модель мертва.
+    await res.json().catch(() => {});
+    return { ok: true, status: res.status };
   } catch {
     return { ok: false, status: 0 };
   }
@@ -136,17 +137,20 @@ async function main() {
   for (const [key, p] of Object.entries(catalog)) {
     if (disabled.has(key)) continue; // user already disabled
     const res = await testModel(p.endpoint, p.model, p.envVar ? process.env[p.envVar] || OPENROUTER_KEY : '');
-    if (!res.ok && res.status === 404) {
-      // Model no longer available — mark for disable
+    if (!res.ok && (res.status === 404 || res.status === 402)) {
+      // 404 = model no longer available; 402 = credits/balance exhausted (won't
+      // auto-recover for HF/Cerebras). Both mean the provider is permanently dead
+      // for our account — disable so we stop probing/selecting it.
       if (!userCfg.providers) userCfg.providers = {};
       if (!userCfg.providers[key]) userCfg.providers[key] = {};
       userCfg.providers[key].enabled = false;
-      console.log(`  ❌ ${key} (${p.model}): 404 — отключаю`);
+      console.log(`  ❌ ${key} (${p.model}): ${res.status} — отключаю`);
       disabledNow++;
-    } else if (!res.ok && res.status === 402) {
-      console.log(`  ⚠️ ${key}: 402 no balance — оставляю (может ожить)`);
     } else if (res.ok) {
       // ok, keep
+      console.log(`  ✅ ${key}: работает`);
+    } else if (res.status === 429) {
+      console.log(`  ⚠️ ${key}: 429 rate limit — оставляю (временное)`);
     } else {
       console.log(`  ⚠️ ${key}: ${res.status} — оставляю (временное)`);
     }
