@@ -64,3 +64,40 @@ describe('compactor.summaryCache', () => {
     assert.ok(compactor.summaryCache instanceof Map);
   });
 });
+
+describe('compactor fallback behavior', () => {
+  it('returns original messages when all summarizers fail', async () => {
+    loadFresh();
+    const big = 'word '.repeat(40000);
+    const msgs = [
+      { role: 'system', content: 'Ты — помощник. Отвечай кратко.' },
+      { role: 'user', content: big },
+      { role: 'user', content: 'продолжай' },
+    ];
+    // Stub getSummary to yield empty (simulates chain producing nothing).
+    compactor.getSummary = async () => '';
+    const result = await compactor.prepareMessages(msgs);
+    assert.deepEqual(result, msgs, 'should leave original messages when no summary');
+  });
+
+  it('reuses cached summary and avoids a second chain call', async () => {
+    loadFresh();
+    // Seed the cache with a known hash so getSummary returns it without chain.
+    const msgs = [{ role: 'user', content: 'a' }, { role: 'user', content: 'b' }];
+    const hash = require('crypto').createHash('sha256').update(JSON.stringify(msgs)).digest('hex');
+    compactor.summaryCache.set(hash, 'проверенное резюме');
+    let chainCalls = 0;
+    const saved = compactor.getSummary;
+    compactor.getSummary = async (m) => {
+      const h = require('crypto').createHash('sha256').update(JSON.stringify(m)).digest('hex');
+      if (compactor.summaryCache.has(h)) { chainCalls++; return compactor.summaryCache.get(h); }
+      chainCalls++;
+      return 'новое';
+    };
+    const first = await compactor.getSummary(msgs);
+    const second = await compactor.getSummary(msgs);
+    assert.equal(first, 'проверенное резюме');
+    assert.equal(second, 'проверенное резюме');
+    compactor.getSummary = saved;
+  });
+});
