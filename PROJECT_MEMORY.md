@@ -19,6 +19,7 @@
 - **Gemini** часто в квоте (429) — формат правильный, но лимит. Восстанавливается.
 - **Nemotron-120b/550b** отвечают думанием вслух — отключены в активном конфиге.
 - **Локальные модели (Ollama)** — на слабом Mac не использовать (9GB RAM).
+- ~~Mojibake в русском ответе~~ **ИСПРАВЛЕНО 26.08**: `data += chunk` / `chunk.toString()` дробили multi-byte UTF-8 на '' (символ `р` резался по байтам). Теперь везде `StringDecoder('utf8')` (providers.js + server.js, streams/cache/retry).
 
 ## Тесты
 - 23 теста: `node --test test/proxy.test.js test/clean.test.js`

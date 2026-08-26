@@ -11,6 +11,7 @@ const { acquire, stats: poolStats } = require('./lib/pool');
 const { stripThink, cleanDelta, cleanMessage, fixReasoningMessage, isTooShort, MIN_ANSWER_LEN } = require('./lib/clean');
 const { classifyComplexity, maybeUpgradeTier, classifyVisionComplexity } = require('./lib/routing');
 const { bucket, pick: banditPick, isTransientLimit } = require('./lib/bandit');
+const { StringDecoder } = require('string_decoder');
 const logger = require('./lib/logger');
 const { KEY_GROUPS, readKeys, saveKeys, validateKey, getStoredKey } = require('./lib/setup');
 const { prepareMessages } = require('./lib/compactor');
@@ -424,11 +425,17 @@ async function handleChatCompletion(req, res, body) {
           recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
           recordSelection(key, provider.model, requestedModel);
           const { Transform } = require('stream');
+          const reasonDec = new StringDecoder('utf8');
           const cleaner = new Transform({
             transform(chunk, encoding, callback) {
-              const str = chunk.toString();
+              const str = reasonDec.write(chunk);
               collect(str);
               callback(null, cleanStr(str));
+            },
+            flush(callback) {
+              const tail = reasonDec.end();
+              if (tail) { collect(tail); const tailStr = cleanStr(tail); if (tailStr) this.push(tailStr); }
+              callback();
             }
           });
           result.stream.on('end', () => {
@@ -458,13 +465,16 @@ async function handleChatCompletion(req, res, body) {
 
         // Обычные модели: буферизуем до первого токена (макс 5 сек).
         // Заголовки не пишем сразу — если токена нет за 5 сек, fallback.
+        // StringDecoder держит частично пришедший multi-byte UTF-8 между чанками —
+        // иначе русский текст дробится на '' символ.
         const rawBuf = [];
+        const streamDec = new StringDecoder('utf8');
         const firstToken = new Promise((resolve) => {
           let done = false;
           const timer = setTimeout(() => { if (!done) { done = true; resolve(false); } }, 5000);
           const finish = (ok) => { if (!done) { done = true; clearTimeout(timer); resolve(ok); } };
           result.stream.on('data', (chunk) => {
-            const str = chunk.toString();
+            const str = streamDec.write(chunk);
             rawBuf.push(str);
             collect(str);
             // Первый контент-токен: хотя бы одно непустое `"content":"..."` в чанке.
@@ -511,13 +521,20 @@ async function handleChatCompletion(req, res, body) {
 
         // Убираем наш 'data'-слушатель (он больше не нужен — данные уже
         // буферизованы в rawBuf и промыты). Дальше обрабатываем вручную.
+        // Продолжаем использовать ТОТ ЖЕ streamDec — иначе multi-byte UTF-8,
+        // разделённый границей буфера, превратится в '' .
         result.stream.removeAllListeners('data');
         result.stream.on('data', (chunk) => {
-          const str = chunk.toString();
+          const str = streamDec.write(chunk);
           collect(str);
           res.write(cleanStr(str));
         });
         result.stream.on('end', () => {
+          const tail = streamDec.end();
+          if (tail) {
+            collect(tail);
+            res.write(cleanStr(tail));
+          }
           const full = chunks.join('');
           // Bandit учится по качеству: обрыв/мусорный стрим = фейл.
           recordBandit(complexityBucket, key, full.trim().length >= MIN_ANSWER_LEN);
@@ -658,12 +675,15 @@ async function handleChatCompletion(req, res, body) {
               return 'data: ' + JSON.stringify(obj);
             } catch { return match; }
           });
+          const retryDec = new StringDecoder('utf8');
           result.stream.on('data', (chunk) => {
-            const str = chunk.toString();
+            const str = retryDec.write(chunk);
             collectRetry(str);
             res.write(cleanRetry(str));
           });
           result.stream.on('end', () => {
+            const tail = retryDec.end();
+            if (tail) { collectRetry(tail); res.write(cleanRetry(tail)); }
             const full = chunks.join('');
             // Bandit учится по качеству в ретрае тоже.
             recordBandit(complexityBucket, key, full.trim().length >= MIN_ANSWER_LEN);
