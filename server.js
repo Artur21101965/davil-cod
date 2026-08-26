@@ -3,7 +3,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { LRUCache } = require('./lib/cache');
-const { PROVIDERS, MODEL_MAP, callProvider } = require('./lib/providers');
+const { PROVIDERS, MODEL_MAP, callProvider, reloadProviders } = require('./lib/providers');
 const { loadState, initHealth, isCircuitOpen, recordSuccess, recordFailure, recordRequest, recordTokens, getHealth, getStats, recordRecent, recordRpm, getRecent, getRpm, recordSelection, getLastSelection, getBandit, recordBandit } = require('./lib/health');
 const { checkRateLimit } = require('./lib/rateLimit');
 const { handleDashboard } = require('./lib/dashboard');
@@ -740,6 +740,29 @@ const server = http.createServer(async (req, res) => {
       }
     }
     handleDashboard(req, res);
+    return;
+  }
+
+  if (parsedUrl.pathname === '/v1/reload' && req.method === 'POST') {
+    // Hot-reload providers.json + config.json without restarting the server.
+    // Auth-protected like the other admin endpoints.
+    if (AUTH_KEY) {
+      const apiKey = (req.headers.authorization || '').replace('Bearer ', '').trim();
+      const keyFromQuery = parsedUrl.searchParams.get('key');
+      if (apiKey !== AUTH_KEY && keyFromQuery !== AUTH_KEY) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'Invalid API key' } }));
+        return;
+      }
+    }
+    try {
+      const result = reloadProviders();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, ...result }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Reload failed: ' + err.message } }));
+    }
     return;
   }
 
