@@ -12,7 +12,7 @@ const { stripThink, cleanDelta, cleanMessage, fixReasoningMessage, isTooShort, M
 const { classifyComplexity, maybeUpgradeTier, classifyVisionComplexity } = require('./lib/routing');
 const { bucket, pick: banditPick, isTransientLimit } = require('./lib/bandit');
 const logger = require('./lib/logger');
-const { KEY_GROUPS, readKeys, saveKeys, validateKey } = require('./lib/setup');
+const { KEY_GROUPS, readKeys, saveKeys, validateKey, getStoredKey } = require('./lib/setup');
 
 // Load persisted state
 loadState();
@@ -893,15 +893,17 @@ const server = http.createServer(async (req, res) => {
   // --- Setup Dashboard API ---
   if (parsedUrl.pathname === '/v1/setup/keys' && req.method === 'GET') {
     const { keys } = readKeys();
-    // Mask keys: show first 4 + last 4 chars, mask middle
+    // Mask keys for display; inputs stay EMPTY so we never send masked values back.
     const masked = {};
+    const empty = {};
     for (const [k, v] of Object.entries(keys)) {
+      empty[k] = '';
       if (!v) { masked[k] = ''; continue; }
       if (v.length <= 10) { masked[k] = v.slice(0, 2) + '***' + v.slice(-2); continue; }
       masked[k] = v.slice(0, 4) + '***' + v.slice(-4);
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ groups: KEY_GROUPS, keys: masked }));
+    res.end(JSON.stringify({ groups: KEY_GROUPS, keys: empty, masked }));
     return;
   }
 
@@ -947,10 +949,19 @@ const server = http.createServer(async (req, res) => {
       }
     }
     const envVar = parsedUrl.searchParams.get('envVar');
-    const testKey = parsedUrl.searchParams.get('apiKey');
-    if (!envVar || !testKey) {
+    let testKey = parsedUrl.searchParams.get('apiKey');
+    if (!envVar) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'envVar and apiKey required' } }));
+      res.end(JSON.stringify({ error: { message: 'envVar required' } }));
+      return;
+    }
+    // If apiKey param is empty/absent, validate the real stored key from .env.
+    if (!testKey) {
+      testKey = getStoredKey(envVar);
+    }
+    if (!testKey) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ valid: false, error: 'Нет сохранённого ключа' }));
       return;
     }
     validateKey(envVar, testKey).then((result) => {
