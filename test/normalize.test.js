@@ -36,10 +36,11 @@ test('normalize: handles array content (text parts only)', () => {
   assert.strictEqual(a, b);
 });
 
-test('normalize: caps at MAX_LEN to bound memory', () => {
+test('normalize: caps at MAX_LEN+TAIL_LEN to bound memory', () => {
   const long = 'а'.repeat(10000);
   const norm = normalizeMessages([{ role: 'user', content: long }]);
-  assert.ok(norm.length <= 2000, 'normalized length bounded');
+  const { MAX_LEN, TAIL_LEN } = require('../lib/normalize');
+  assert.ok(norm.length <= MAX_LEN + TAIL_LEN, 'normalized length bounded to MAX_LEN+TAIL_LEN');
 });
 
 test('normalize: code with operators is NOT collapsed (exact match for code)', () => {
