@@ -13,6 +13,7 @@ const { classifyComplexity, maybeUpgradeTier, classifyVisionComplexity } = requi
 const { bucket, pick: banditPick, isTransientLimit } = require('./lib/bandit');
 const logger = require('./lib/logger');
 const { KEY_GROUPS, readKeys, saveKeys, validateKey, getStoredKey } = require('./lib/setup');
+const { prepareMessages } = require('./lib/compactor');
 
 // Load persisted state
 loadState();
@@ -232,6 +233,12 @@ async function handleChatCompletion(req, res, body) {
         };
       }
     }
+  }
+
+  // Compact overly large conversations so free models don't reject on context.
+  // Runs AFTER the vision pipeline (images already converted to text above).
+  if (Array.isArray(body.messages) && body.messages.length > 0) {
+    body.messages = await prepareMessages(body.messages);
   }
 
   // Check cache (works for both streaming and non-streaming)
