@@ -14,7 +14,7 @@ const { bucket, pick: banditPick, isTransientLimit } = require('./lib/bandit');
 const { StringDecoder } = require('string_decoder');
 const logger = require('./lib/logger');
 const { KEY_GROUPS, readKeys, saveKeys, validateKey, getStoredKey } = require('./lib/setup');
-const { prepareMessages } = require('./lib/compactor');
+const { prepareMessages, estimateTokens } = require('./lib/compactor');
 
 // Load persisted state
 loadState();
@@ -273,10 +273,28 @@ async function handleChatCompletion(req, res, body) {
     .filter(([_, p]) => p.enabled && !isCircuitOpen(p.key) && p.vision !== true &&
       (getHealth()[p.key]?.status === 'up' || getHealth()[p.key]?.status === 'ratelimited'));
 
+  // Window-aware routing: estimate the request size and only consider providers
+  // whose context window can actually hold it. This stops large requests from
+  // burning time falling through lfm (65k) / groq (131k) providers that reject
+  // them — they go straight to nemotron-35/dots-3/minimax (1M/512k windows).
+  // Only applies when the request is big enough to matter, so small/typical
+  // requests keep the full fast pool.
+  const requestTokens = estimateTokens(body.messages);
+  const MIN_WINDOW = 128000; // below this we don't filter (typical requests)
+  let windowPool = healthyProviders;
+  if (requestTokens > MIN_WINDOW) {
+    const capable = healthyProviders.filter(([_, p]) => {
+      const win = p.context_window || 0;
+      // Unknown/0 window providers are kept (heuristic) — better to try than drop.
+      return win === 0 || win >= requestTokens;
+    });
+    if (capable.length > 0) windowPool = capable;
+  }
+
   // Prefer providers below 90% of their daily limit; only fall back to
   // near-exhausted ones if that leaves nothing (avoids avoidable 429s).
-  let pool = healthyProviders;
-  const underLimit = healthyProviders.filter(([_, p]) => {
+  let pool = windowPool;
+  const underLimit = windowPool.filter(([_, p]) => {
     const limit = p.dailyLimit || 1000;
     const used = (getStats().dailyUsage?.[p.key]?.[today]) || 0;
     return used < limit * 0.9;

@@ -7,7 +7,8 @@
     "keyHint": "console.groq.com → API Keys",
     "envVar": "PROVIDER_GROQ_APIKEY",
     "free": true,
-    "category": "general"
+    "category": "general",
+    "context_window": 131072
   },
   "groq-qwen": {
     "endpoint": "https://api.groq.com/openai/v1/chat/completions",
@@ -17,7 +18,8 @@
     "keyHint": "console.groq.com → API Keys",
     "envVar": "PROVIDER_GROQ_APIKEY",
     "free": true,
-    "category": "general"
+    "category": "general",
+    "context_window": 262144
   },
   "groq-allam": {
     "endpoint": "https://api.groq.com/openai/v1/chat/completions",
@@ -27,7 +29,8 @@
     "keyHint": "console.groq.com → API Keys (allam-2-7b, очень быстрая 229ms)",
     "envVar": "PROVIDER_GROQ_APIKEY",
     "free": true,
-    "category": "general"
+    "category": "general",
+    "context_window": 8192
   },
   "groq-compound": {
     "endpoint": "https://api.groq.com/openai/v1/chat/completions",
@@ -37,7 +40,8 @@
     "keyHint": "console.groq.com → API Keys (compound)",
     "envVar": "PROVIDER_GROQ_APIKEY",
     "free": true,
-    "category": "general"
+    "category": "general",
+    "context_window": 131072
   },
   "mistral-codestral": {
     "endpoint": "https://api.mistral.ai/v1/chat/completions",
@@ -47,7 +51,8 @@
     "keyHint": "console.mistral.ai → API Keys",
     "envVar": "PROVIDER_MISTRAL_APIKEY",
     "free": true,
-    "category": "coding"
+    "category": "coding",
+    "context_window": 33000
   },
   "mistral-small": {
     "endpoint": "https://api.mistral.ai/v1/chat/completions",
@@ -57,7 +62,8 @@
     "keyHint": "console.mistral.ai → API Keys",
     "envVar": "PROVIDER_MISTRAL_APIKEY",
     "free": true,
-    "category": "general"
+    "category": "general",
+    "context_window": 33000
   },
   "gemini-flash": {
     "endpoint": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
@@ -67,7 +73,8 @@
     "keyHint": "aistudio.google.com → Get API key",
     "envVar": "PROVIDER_GEMINI_APIKEY",
     "free": true,
-    "category": "general"
+    "category": "general",
+    "context_window": 1000000
   },
   "nim-deepseek": {
     "endpoint": "https://integrate.api.nvidia.com/v1/chat/completions",
@@ -97,7 +104,8 @@
     "keyHint": "open.bigmodel.cn → API Keys",
     "envVar": "PROVIDER_ZAI_APIKEY",
     "free": true,
-    "category": "general"
+    "category": "general",
+    "context_window": 128000
   },
   "openrouter-hermes": {
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
@@ -107,7 +115,8 @@
     "keyHint": "openrouter.ai → Keys (медленный, запасной)",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
     "free": true,
-    "category": "coding"
+    "category": "coding",
+    "context_window": 256000
   },
   "openrouter-mistral": {
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
@@ -117,7 +126,8 @@
     "keyHint": "openrouter.ai → Keys",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
     "free": true,
-    "category": "general"
+    "category": "general",
+    "context_window": 256000
   },
   "or-nemotron-550b": {
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
@@ -171,7 +181,8 @@
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
     "free": true,
     "category": "reasoning",
-    "reasoning": true
+    "reasoning": true,
+    "context_window": 1000000
   },
   "or-laguna-s": {
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
@@ -181,7 +192,8 @@
     "keyHint": "openrouter.ai → Keys (Laguna S: кодинг, 118B)",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
     "free": true,
-    "category": "coding"
+    "category": "coding",
+    "context_window": 262144
   },
   "gemini-vision": {
     "endpoint": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
@@ -192,7 +204,8 @@
     "envVar": "PROVIDER_GEMINI_APIKEY",
     "free": true,
     "vision": true,
-    "category": "vision"
+    "category": "vision",
+    "context_window": 1000000
   },
   "nim-vision": {
     "endpoint": "https://integrate.api.nvidia.com/v1/chat/completions",
@@ -203,7 +216,8 @@
     "envVar": "PROVIDER_NIM_APIKEY",
     "free": true,
     "vision": true,
-    "category": "vision"
+    "category": "vision",
+    "context_window": 128000
   },
   "ollama": {
     "endpoint": "http://localhost:11434/v1/chat/completions",
@@ -255,7 +269,8 @@
     "keyHint": "platform.deepseek.com → API Keys (deepseek-v4-flash)",
     "envVar": "PROVIDER_DEEPSEEK_APIKEY",
     "free": true,
-    "category": "general"
+    "category": "general",
+    "context_window": 128000
   },
   "deepseek-vision": {
     "endpoint": "https://api.deepseek.com/chat/completions",
@@ -266,7 +281,8 @@
     "envVar": "PROVIDER_DEEPSEEK_APIKEY",
     "free": true,
     "vision": true,
-    "category": "vision"
+    "category": "vision",
+    "context_window": 128000
   },
   "or-dots-3": {
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
@@ -277,7 +293,8 @@
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
     "free": true,
     "category": "reasoning",
-    "reasoning": true
+    "reasoning": true,
+    "context_window": 512000
   },
   "or-lfm": {
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
@@ -288,7 +305,8 @@
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
     "free": true,
     "category": "reasoning",
-    "reasoning": true
+    "reasoning": true,
+    "context_window": 65536
   },
   "or-laguna-xs": {
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
@@ -298,7 +316,8 @@
     "keyHint": "openrouter.ai → Keys (Laguna XS: кодинг)",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
     "free": true,
-    "category": "coding"
+    "category": "coding",
+    "context_window": 262144
   },
   "or-nemotron-3-nano-omni-30b-a3b-r": {
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
@@ -308,7 +327,8 @@
     "keyHint": "openrouter.ai → Keys (автодобавлено, vision)",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
     "free": true,
-    "category": "vision"
+    "category": "vision",
+    "context_window": 256000
   },
   "hf-Qwen3-8-2-4T-A95B": {
     "endpoint": "https://router.huggingface.co/v1/chat/completions",
@@ -388,7 +408,8 @@
     "keyHint": "openrouter.ai → Keys (автодобавлено, vision)",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
     "free": true,
-    "category": "vision"
+    "category": "vision",
+    "context_window": 1048576
   },
   "or-minimax-m2-7-free": {
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
@@ -399,7 +420,8 @@
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
     "free": true,
     "category": "reasoning",
-    "reasoning": true
+    "reasoning": true,
+    "context_window": 196608
   },
   "or-gemma-4-31b-it-free": {
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
@@ -409,6 +431,7 @@
     "keyHint": "openrouter.ai → Keys (автодобавлено, vision)",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
     "free": true,
-    "category": "vision"
+    "category": "vision",
+    "context_window": 262144
   }
 }
