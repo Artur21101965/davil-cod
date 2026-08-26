@@ -127,7 +127,8 @@
     "keyHint": "openrouter.ai → Keys",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
     "free": true,
-    "category": "reasoning"
+    "category": "reasoning",
+    "reasoning": true
   },
   "or-nemotron-120b": {
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
@@ -137,7 +138,8 @@
     "keyHint": "openrouter.ai → Keys",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
     "free": true,
-    "category": "reasoning"
+    "category": "reasoning",
+    "reasoning": true
   },
   "or-gpt-oss-20b": {
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
@@ -168,7 +170,8 @@
     "keyHint": "openrouter.ai → Keys (Nemotron 3.5 Lightning: 977K контекст)",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
     "free": true,
-    "category": "reasoning"
+    "category": "reasoning",
+    "reasoning": true
   },
   "or-laguna-s": {
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
@@ -273,7 +276,8 @@
     "keyHint": "openrouter.ai → Keys (Dots 3: 280B MoE, мощная)",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
     "free": true,
-    "category": "reasoning"
+    "category": "reasoning",
+    "reasoning": true
   },
   "or-lfm": {
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
@@ -283,7 +287,8 @@
     "keyHint": "openrouter.ai → Keys (LFM 2.5: быстрая reasoning)",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
     "free": true,
-    "category": "reasoning"
+    "category": "reasoning",
+    "reasoning": true
   },
   "or-laguna-xs": {
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
@@ -393,6 +398,17 @@
     "keyHint": "openrouter.ai → Keys (автодобавлено, reasoning)",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
     "free": true,
-    "category": "reasoning"
+    "category": "reasoning",
+    "reasoning": true
+  },
+  "or-gemma-4-31b-it-free": {
+    "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+    "model": "google/gemma-4-31b-it:free",
+    "priority": 20,
+    "dailyLimit": 50,
+    "keyHint": "openrouter.ai → Keys (автодобавлено, vision)",
+    "envVar": "PROVIDER_OPENROUTER_APIKEY",
+    "free": true,
+    "category": "vision"
   }
 }
