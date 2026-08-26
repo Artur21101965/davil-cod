@@ -41,12 +41,18 @@ describe('compactor.prepareMessages', () => {
 
   it('compacts when over threshold', async () => {
     loadFresh();
-    // Large enough to exceed the real COMPACT_THRESHOLD (50000 tokens ≈ 180k chars).
-    const big = 'word '.repeat(40000); // 200k chars ≈ 55k tokens
+    // Build messages until the combined size clearly exceeds COMPACT_THRESHOLD.
+    // The threshold is loaded from the module, so this stays correct if it changes.
+    const threshold = compactor.COMPACT_THRESHOLD;
+    const charsNeeded = threshold * 3.6 * 2; // 2x headroom
+    const chunkChars = 10000;
+    const chunks = [];
+    let total = 0;
+    while (total < charsNeeded) { chunks.push(chunkChars); total += chunkChars; }
+    const big = 'word '.repeat(chunkChars);
     const msgs = [
       { role: 'system', content: 'Ты — помощник. Отвечай кратко.' },
-      { role: 'user', content: big },
-      { role: 'assistant', content: big },
+      ...chunks.map((_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: big })),
       { role: 'user', content: 'продолжай, что было выше?' },
     ];
     // Stub getSummary to avoid real network.
