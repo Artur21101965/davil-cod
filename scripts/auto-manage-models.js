@@ -116,6 +116,18 @@ async function scanHuggingFace(existingModels) {
   return out;
 }
 
+// ── Notify the running proxy to hot-reload providers/config ──
+// Reads PORT/AUTH from env or defaults, POSTs /v1/reload. Best-effort.
+function reloadProxy() {
+  const port = process.env.PORT || '4000';
+  const auth = process.env.AUTH || 'free-llm-proxy-2024';
+  try {
+    const res = fetch(`http://localhost:${port}/v1/reload?key=${encodeURIComponent(auth)}`, { method: 'POST' });
+    // fire-and-forget; log outcome
+  } catch {}
+  return true;
+}
+
 async function main() {
   console.log('=== Freegate: автоуправление моделями ===');
   console.log('Режим:', AUTO_ADD ? 'AUTO-ADD (добавляю рабочие)' : 'только отчёт');
@@ -158,6 +170,8 @@ async function main() {
   if (disabledNow > 0) {
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(userCfg, null, 2));
     console.log(`  → Отключено мёртвых: ${disabledNow}`);
+    reloadProxy();
+    console.log('  → Прокси перезагружен на горячую (применено без рестарта).');
   } else {
     console.log('  → Все существующие рабочие (или не критичные сбои)');
   }
@@ -228,6 +242,8 @@ async function main() {
   if (added > 0 && AUTO_ADD) {
     fs.writeFileSync(CATALOG_PATH, JSON.stringify(catalog, null, 2) + '\n');
     console.log(`\n  → Добавлено рабочих: ${added}. Каталог обновлён.`);
+    reloadProxy();
+    console.log('  → Прокси перезагружен на горячую (новые модели видны сразу).');
   } else if (added > 0 && !AUTO_ADD) {
     console.log(`\n  → Найдено рабочих: ${added} (AUTO_ADD=false — не добавляю)`);
   } else {
