@@ -292,6 +292,21 @@ test('health: saveState writes stats.context as buckets array (state restored)',
   }
 });
 
+test('contextstats: summary contract used by /health and /v1/stats', () => {
+  const { ContextStats } = require('../lib/contextstats');
+  const s = new ContextStats().summary();
+  assert.equal(typeof s.status, 'string');
+  assert.equal(typeof s.totalRequests, 'number');
+  assert.equal(typeof s.cacheHitRate, 'number');
+  assert.equal(typeof s.ratePerHour, 'number');
+  assert.ok(typeof s.providers === 'object' && Array.isArray(s.providers) === false, 'providers rows map');
+});
+
+test('server: getContextStats exported by health (wiring anchor)', () => {
+  const health = require('../lib/health');
+  assert.equal(typeof health.getContextStats, 'function');
+});
+
 // Stop background timers so the test process can exit (health.js sets setInterval)
 require('../lib/health')._stopTimers();
 require('../lib/cache')._stopTimers();

@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { LRUCache } = require('./lib/cache');
 const { PROVIDERS, MODEL_MAP, callProvider, reloadProviders } = require('./lib/providers');
-const { loadState, initHealth, isCircuitOpen, recordSuccess, recordFailure, recordRequest, recordTokens, getHealth, getStats, recordRecent, recordRpm, getRecent, getRpm, recordSelection, getLastSelection, getBandit, recordBandit, warmBanditPriors } = require('./lib/health');
+const { loadState, initHealth, isCircuitOpen, recordSuccess, recordFailure, recordRequest, recordTokens, getHealth, getStats, recordRecent, recordRpm, getRecent, getRpm, recordSelection, getLastSelection, getBandit, recordBandit, warmBanditPriors, getContextStats } = require('./lib/health');
 const { checkRateLimit } = require('./lib/rateLimit');
 const { handleDashboard } = require('./lib/dashboard');
 const { acquire, stats: poolStats } = require('./lib/pool');
@@ -19,6 +19,7 @@ const { create: createMemoryStore } = require('./lib/memory-store');
 
 // Load persisted state
 loadState();
+const contextStats = getContextStats();
 
 // Drop stale health entries for providers that no longer exist (e.g. auto-disabled)
 const activeKeys = new Set(Object.keys(PROVIDERS));
@@ -211,6 +212,12 @@ async function handleChatCompletion(req, res, body) {
   let effectiveModel = maybeUpgradeTier(requestedModel, complexity);
   let targetProviderKey = MODEL_MAP[effectiveModel] || MODEL_MAP[requestedModel] || 'zai';
   const isStreaming = body.stream === true;
+  // --- Контекстная телеметрия: один measure на запрос, record только в терминальной точке. ---
+  const measure = { ts: Date.now(), provider: targetProviderKey, cacheType: 'miss', status: 0, win: PROVIDERS[targetProviderKey]?.context_window || 0 };
+  const commit = (status) => {
+    measure.status = status;
+    contextStats.record(measure);
+  };
 
   // Vision detection: if the request contains images, route to a vision provider.
   // TWO-STAGE pipeline:
@@ -314,8 +321,17 @@ async function handleChatCompletion(req, res, body) {
 
   // Compact overly large conversations so free models don't reject on context.
   // Runs AFTER the vision pipeline (images already converted to text above).
+  if (Array.isArray(body.messages)) measure.origTokens = estimateTokens(body.messages);
   if (Array.isArray(body.messages) && body.messages.length > 0) {
     body.messages = await prepareMessages(body.messages, { contextWindow: PROVIDERS[targetProviderKey]?.context_window || 0 });
+  }
+  // Контекстная телеметрия: токены после компакции + доля системного промпта.
+  if (Array.isArray(body.messages)) {
+    measure.sentTokens = estimateTokens(body.messages);
+    measure.compacted = measure.sentTokens < measure.origTokens;
+    const sysChars = body.messages.filter(m => m && m.role === 'system').reduce((a, m) => a + (typeof m.content === 'string' ? m.content.length : 0), 0);
+    const allChars = body.messages.reduce((a, m) => a + (typeof (m && m.content) === 'string' ? m.content.length : 0), 0);
+    if (allChars > 0) measure.sysShare = sysChars / allChars;
   }
 
   // --- Long-term memory recall ---
@@ -349,6 +365,7 @@ async function handleChatCompletion(req, res, body) {
               const block = { role: 'user', content: '[Память: релевантные факты из прошлого]\n' + memoryMsg };
               if (insertAt === -1) body.messages.unshift(block);
               else body.messages.splice(insertAt, 0, block);
+              measure.memory = true;
               logger.info('Memory recall', { facts: fresh.length, covered: hits.length - fresh.length });
             }
           }
@@ -381,6 +398,8 @@ async function handleChatCompletion(req, res, body) {
   if (cached) {
     logger.request({ model: requestedModel, provider: 'cache', status: 200, cached: true });
     recordRecent({ model: requestedModel, provider: 'cache', status: 200, latency: 0, cached: true });
+    measure.cacheType = 'exact';
+    commit(200);
     serveCached(res, cached, isStreaming);
     return;
   }
@@ -391,6 +410,8 @@ async function handleChatCompletion(req, res, body) {
     if (semantic) {
       logger.request({ model: requestedModel, provider: 'semcache', status: 200, cached: true });
       recordRecent({ model: requestedModel, provider: 'semcache', status: 200, latency: 0, cached: true });
+      measure.cacheType = 'semcache';
+      commit(200);
       serveCached(res, semantic.value, isStreaming);
       return;
     }
@@ -488,6 +509,7 @@ async function handleChatCompletion(req, res, body) {
   }
 
   if (enabledProviders.length === 0) {
+    commit(503);
     res.writeHead(503, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'No providers available' }));
     return;
@@ -543,6 +565,7 @@ async function handleChatCompletion(req, res, body) {
       }
 
       if (isStreaming && result.stream) {
+        measure.provider = key;
         const chunks = [];
 
         // Очистка SSE-строки: убрать nvext, logprobs, think-блоки из дельт.
@@ -610,7 +633,10 @@ async function handleChatCompletion(req, res, body) {
             const full = chunks.join('');
             // Bandit учится по качеству: пустой/мусорный стрим = фейл.
             recordBandit(complexityBucket, key, full.trim().length >= MIN_ANSWER_LEN);
-            if (Object.keys(reasonUsage).length > 0) recordTokens(key, reasonUsage);
+            if (Object.keys(reasonUsage).length > 0) {
+              recordTokens(key, reasonUsage);
+              if (reasonUsage.prompt_tokens) measure.real = reasonUsage.prompt_tokens;
+            }
             if (full.trim().length >= MIN_ANSWER_LEN) {
               cache.set(effectiveModel, body.messages, body.temperature, {
                 id: 'chatcmpl-cached',
@@ -621,11 +647,13 @@ async function handleChatCompletion(req, res, body) {
                 usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
               });
             }
+            commit(200);
             res.end();
           });
           result.stream.on('error', (err) => {
             logger.error('Stream error', { key, error: err.message });
             if (!isTransientLimit(err.statusCode)) recordBandit(complexityBucket, key, false);
+            commit(err.statusCode || 502);
             res.end();
           });
           result.stream.pipe(cleaner).pipe(res);
@@ -715,7 +743,10 @@ async function handleChatCompletion(req, res, body) {
           const full = chunks.join('');
           // Bandit учится по качеству: обрыв/мусорный стрим = фейл.
           recordBandit(complexityBucket, key, full.trim().length >= MIN_ANSWER_LEN);
-          if (Object.keys(streamUsage).length > 0) recordTokens(key, streamUsage);
+          if (Object.keys(streamUsage).length > 0) {
+            recordTokens(key, streamUsage);
+            if (streamUsage.prompt_tokens) measure.real = streamUsage.prompt_tokens;
+          }
           if (full.trim().length >= MIN_ANSWER_LEN) {
             cache.set(effectiveModel, body.messages, body.temperature, {
               id: 'chatcmpl-cached',
@@ -726,11 +757,13 @@ async function handleChatCompletion(req, res, body) {
               usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
             });
           }
+          commit(200);
           res.end();
         });
         result.stream.on('error', (err) => {
           logger.error('Stream error', { key, error: err.message });
           if (!isTransientLimit(err.statusCode)) recordBandit(complexityBucket, key, false);
+          commit(err.statusCode || 502);
           res.end();
         });
         return;
@@ -744,6 +777,10 @@ async function handleChatCompletion(req, res, body) {
         logger.request({ model: requestedModel, provider: key, status: 200, latency: result.latency, stream: isStreaming });
         recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
         recordSelection(key, provider.model, requestedModel);
+        measure.provider = key;
+        measure.real = (result.data.usage && result.data.usage.prompt_tokens) ? result.data.usage.prompt_tokens : measure.sentTokens || 0;
+        measure.win = PROVIDERS[key]?.context_window || 0;
+        commit(200);
         cache.set(effectiveModel, body.messages, body.temperature, result.data);
         recordTokens(key, result.usage);
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -827,6 +864,10 @@ if (isTooShort(result.data, lastUserText(body.messages))) {
           recordBandit(complexityBucket, key, true);
           recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
           recordSelection(key, provider.model, requestedModel);
+          measure.provider = key;
+          measure.real = (result.data.usage && result.data.usage.prompt_tokens) ? result.data.usage.prompt_tokens : measure.sentTokens || 0;
+          measure.win = PROVIDERS[key]?.context_window || 0;
+          commit(200);
           cache.set(effectiveModel, body.messages, body.temperature, result.data);
           recordTokens(key, result.usage);
           res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -834,6 +875,7 @@ if (isTooShort(result.data, lastUserText(body.messages))) {
           return;
         }
         if (body.stream && result.stream) {
+          measure.provider = key;
           recordSuccess(key);
           recordRequest(key, true);
           recordRecent({ model: requestedModel, provider: key, status: 200, latency: result.latency, cached: false });
@@ -886,11 +928,13 @@ if (isTooShort(result.data, lastUserText(body.messages))) {
                 usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
               });
             }
+            commit(200);
             res.end();
           });
           result.stream.on('error', (err) => {
             logger.error('Stream error (retry)', { key, error: err.message });
             if (!isTransientLimit(err.statusCode)) recordBandit(complexityBucket, key, false);
+            commit(err.statusCode || 502);
             res.end();
           });
           return;
@@ -903,6 +947,7 @@ if (isTooShort(result.data, lastUserText(body.messages))) {
     }
   }
 
+  commit(502);
   res.writeHead(502, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ error: { message: 'All providers failed', type: 'api_error', code: 'all_providers_failed', details: errors } }));
 }
@@ -959,8 +1004,9 @@ const server = http.createServer(async (req, res) => {
     const h = getHealth();
     const upCount = Object.values(h).filter(v => v.status === 'up').length;
     const totalCount = Object.entries(PROVIDERS).filter(([_, p]) => p.enabled).length;
+    const contextSummary = (() => { try { return contextStats.summary(); } catch { return null; } })();
     res.writeHead(upCount > 0 ? 200 : 503, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ status: upCount > 0 ? 'ok' : 'degraded', providers: { up: upCount, total: totalCount } }));
+    res.end(JSON.stringify({ status: upCount > 0 ? 'ok' : 'degraded', providers: { up: upCount, total: totalCount }, context: contextSummary }));
     return;
   }
 
@@ -996,6 +1042,7 @@ const server = http.createServer(async (req, res) => {
       pool: poolStats(),
       last_selection: getLastSelection(),
       bandit: getBandit(),
+      context_summary: (() => { try { return contextStats.summary(); } catch { return null; } })(),
     }));
     return;
   }
