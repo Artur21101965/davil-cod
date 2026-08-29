@@ -307,6 +307,15 @@ test('server: getContextStats exported by health (wiring anchor)', () => {
   assert.equal(typeof health.getContextStats, 'function');
 });
 
+test('dashboard: renders context block', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'lib', 'dashboard.js'), 'utf8');
+  assert.ok(html.includes('ctxBlock'), 'есть элемент #ctxBlock');
+  assert.ok(html.includes('renderContext'), 'есть рендер renderContext');
+  assert.ok(html.includes('context_summary'), 'refresh читает context_summary');
+});
+
 // Stop background timers so the test process can exit (health.js sets setInterval)
 require('../lib/health')._stopTimers();
 require('../lib/cache')._stopTimers();
