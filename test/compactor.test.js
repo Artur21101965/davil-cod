@@ -16,12 +16,12 @@ describe('compactor.estimateTokens', () => {
     assert.equal(compactor.estimateTokens('string'), 0);
   });
 
-  it('estimates by chars/3.6', () => {
+  it('estimates conservatively (chars/1.5)', () => {
     loadFresh();
     const msgs = [{ role: 'user', content: 'hello world' }]; // 11 chars
     const est = compactor.estimateTokens(msgs);
     assert.equal(typeof est, 'number');
-    assert.ok(est >= 3 && est <= 4, 'expected ~3 tokens, got ' + est);
+    assert.ok(est >= 6 && est <= 9, 'expected ~8 tokens (11 chars / 1.5), got ' + est);
   });
 });
 
@@ -71,6 +71,53 @@ describe('compactor.summaryCache', () => {
   });
 });
 
+describe('compactor.parseSummaryResponse', () => {
+  it('parses strict JSON with summary + facts', () => {
+    loadFresh();
+    const r = compactor.parseSummaryResponse('{"summary":"резюме диалога","facts":["факт про keepalive","факт про minimax"]}');
+    assert.equal(r.summary, 'резюме диалога');
+    assert.ok(r.facts.includes('факт про keepalive'));
+  });
+
+  it('parses fenced ```json blocks', () => {
+    loadFresh();
+    const r = compactor.parseSummaryResponse('```json\n{"summary":"резюме","facts":["факт один"]}\n```');
+    assert.equal(r.summary, 'резюме');
+    assert.equal(r.facts.length, 1);
+  });
+
+  it('treats plain text as summary-only (no facts)', () => {
+    loadFresh();
+    const r = compactor.parseSummaryResponse('просто обычное резюме без json');
+    assert.equal(r.summary, 'просто обычное резюме без json');
+    assert.deepEqual(r.facts, []);
+  });
+
+  it('filters empty/junk facts and handles null', () => {
+    loadFresh();
+    const r = compactor.parseSummaryResponse('{"summary":"s","facts":["", "  ", 123, "валидный факт"]}');
+    assert.deepEqual(r.facts, ['валидный факт']);
+  });
+});
+
+describe('compactor.ingestFacts', () => {
+  it('stores facts into the attached memory store (capped)', () => {
+    loadFresh();
+    const stored = [];
+    compactor.setMemory({ add: (text) => stored.push(text) });
+    const n = compactor.ingestFacts(['f1', 'f2', 'f3', 'f4', 'f5', 'f6'], 'hash123');
+    assert.equal(n, 5, 'capped at MAX_FACTS_PER_COMPACTION');
+    assert.equal(stored.length, 5);
+  });
+
+  it('does nothing without a memory store', () => {
+    loadFresh();
+    compactor.setMemory(null);
+    const n = compactor.ingestFacts(['f1'], 'h');
+    assert.equal(n, 0);
+  });
+});
+
 describe('compactor fallback behavior', () => {
   it('returns original messages when all summarizers fail', async () => {
     loadFresh();
@@ -105,5 +152,79 @@ describe('compactor fallback behavior', () => {
     assert.equal(first, 'проверенное резюме');
     assert.equal(second, 'проверенное резюме');
     compactor.getSummary = saved;
+  });
+});
+
+describe('compactor.compactionThresholdFor', () => {
+  it('returns COMPACT_THRESHOLD for unknown/zero window', () => {
+    loadFresh();
+    assert.equal(compactor.compactionThresholdFor(0), compactor.COMPACT_THRESHOLD);
+    assert.equal(compactor.compactionThresholdFor(undefined), compactor.COMPACT_THRESHOLD);
+    assert.equal(compactor.compactionThresholdFor(null), compactor.COMPACT_THRESHOLD);
+  });
+
+  it('caps defined windows at min(win*0.5, 100000)', () => {
+    loadFresh();
+    assert.equal(compactor.compactionThresholdFor(33000), Math.floor(33000 * 0.5)); // 16500
+    assert.equal(compactor.compactionThresholdFor(65536), Math.floor(65536 * 0.5)); // 32768
+    assert.equal(compactor.compactionThresholdFor(128000), Math.floor(128000 * 0.5)); // 64000
+    assert.equal(compactor.compactionThresholdFor(512000), 100000);
+    assert.equal(compactor.compactionThresholdFor(1048576), 100000);
+  });
+
+  it('defined-window threshold never exceeds 100000', () => {
+    loadFresh();
+    assert.ok(compactor.compactionThresholdFor(1000000) <= 100000);
+  });
+});
+
+// NOTE on test sizes: estimateTokens = chars / CHARS_PER_TOKEN(1.5). To hit
+// est ≈ N tokens use big = 'w'.repeat(N * 1.5) chars. compactOld reserves
+// KEEP_RECENT_TOKENS(30000) for the recent tail and only summarizes the OLD
+// prefix — so a request must exceed 30000 est to have any compactable head.
+// window 33000 → threshold 16500: est 32006 (> 16500, > 30000) compacts.
+// window 1048576 → threshold 100000; window 128000 → threshold 64000:
+// est 32006 is below both → unchanged. All sizes are also below global 60000,
+// so only the contextWindow option can trigger compaction.
+const EST_TOKENS = 32000;
+function bigMessage(estTokens) {
+  return { role: 'user', content: 'w'.repeat(Math.ceil(estTokens * 1.5)) };
+}
+
+describe('compactor.prepareMessages with contextWindow option', () => {
+  it('compacts at a smaller threshold for a small-window target', async () => {
+    loadFresh();
+    // total est ≈ 32006 > threshold(33000)=16500 → compacts.
+    const msgs = [
+      { role: 'system', content: 'Ты — помощник. Отвечай кратко.' },
+      bigMessage(EST_TOKENS),
+      { role: 'user', content: 'продолжай' },
+    ];
+    compactor.getSummary = async () => 'краткое резюме диалога';
+    const result = await compactor.prepareMessages(msgs, { contextWindow: 33000 });
+    assert.notDeepEqual(result, msgs, 'should compact for the small window');
+    assert.ok(result.some(m => m.content && m.content.includes('[Резюме')), 'summary present');
+  });
+
+  it('does NOT compact under a large window where global threshold applies', async () => {
+    loadFresh();
+    // total est ≈ 32006 < threshold(1048576)=100000 → unchanged, getSummary unused.
+    const msgs = [
+      { role: 'system', content: 'Ты — помощник.' },
+      bigMessage(EST_TOKENS),
+      { role: 'user', content: 'продолжай' },
+    ];
+    compactor.getSummary = async () => 'вызван не должен быть';
+    const result = await compactor.prepareMessages(msgs, { contextWindow: 1048576 });
+    assert.deepEqual(result, msgs, 'no compaction under large window at this size');
+  });
+
+  it('prevents prefer-small over global: window 128k still compacts only above 64k est', async () => {
+    loadFresh();
+    // total est ≈ 32006 < threshold(128000)=64000 → unchanged.
+    const msgs = [bigMessage(EST_TOKENS)];
+    compactor.getSummary = async () => 'никогда';
+    const result = await compactor.prepareMessages(msgs, { contextWindow: 128000 });
+    assert.deepEqual(result, msgs);
   });
 });
