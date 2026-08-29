@@ -3,8 +3,9 @@
 Ключевые решения и знания. Читай перед изменениями в прокси.
 
 ## Архитектура
-- **Прокси**: Node.js, zero-dependency, 7 модулей в `lib/` (cache, clean, dashboard, health, logger, pool, providers, rateLimit)
+- **Прокси**: Node.js, zero-dependency, модули в `lib/` (cache, clean, compactor, dashboard, health, logger, memory, memory-store, providers, rateLimit, vision)
 - **Провайдеры**: каталог в `providers.json`, пользовательские в `config.json` (overlay). Ключи ТОЛЬКО в `.env`
+- **Память**: `memStore` (lib/memory.js + memory-store.js) — векторные факты в `memory.json`, автосейв 60с + на SIGTERM
 - **Отдельно**: прокси логика (server.js + lib/) и генератор шортс (tools/, Python)
 
 ## Ключевые решения
@@ -14,6 +15,11 @@
 - **tier-алиасы маршрутизируются на целевую модель первой** — иначе агент попадает на Nemotron-120b (думает вслух, слитный ответ).
 - **Провайдеры с >20 ошибок сегодня** почти исключаются из выбора (восстанавливаются на следующий день).
 - **Стриминг кэшируется** — повторные промпты из кэша за ~50ms.
+- **Компакция** (lib/compactor.js): порог 60k токенов, `CHARS_PER_TOKEN=1.5` (намеренно консервативно; opencode «264k» ≈ ~2× прокси-оценки), keep_recent 30k. Оценка по символам, сжимает слишком большие диалоги.
+- **Долговременная память**: при компакции summarizer отдаёт JSON `{summary, facts}` — факты автоматически в `memory.json` (0 доп. LLM-вызовов). Перед кэшем запрос анализируется, релевантные факты добавляются **user-сообщением** `[Память: ...]` после system (кэш-ключ строится из user → разные факты = разные ключи, без отравления кэша).
+- **Тир-маппинг**: tier-s→codestral, tier-splus/tier-l→minimax-m3, tier-xl→dots-3, Best→minimax-m3.
+- **404**: «does not exist» → permanent disable; «Provider returned error» → короткий circuit-breaker 70с, не отключает провайдера.
+- **Bandit-прогрев**: холодные приоры {1,1} или ≤4 испытаний → {a:6,b:2} при старте сервера.
 
 ## Известные проблемы
 - **Gemini** часто в квоте (429) — формат правильный, но лимит. Восстанавливается.
@@ -22,8 +28,9 @@
 - ~~Mojibake в русском ответе~~ **ИСПРАВЛЕНО 26.08**: `data += chunk` / `chunk.toString()` дробили multi-byte UTF-8 на '' (символ `р` резался по байтам). Теперь везде `StringDecoder('utf8')` (providers.js + server.js, streams/cache/retry).
 
 ## Тесты
-- 23 теста: `node --test test/proxy.test.js test/clean.test.js`
+- 109 тестов: `node --test test/*.test.js` (proxy, clean, compactor, memory, memory-store, vision, dashboard)
 - Перед публикацией: тесты + `node --check server.js lib/*.js`
+- `POST /v1/cache/clear` и `POST /v1/reload` требуют auth (Bearer); память чистится/сейвится автоматически
 
 ## Мультиагентность (opencode)
 Глобальные субагенты в `~/.config/opencode/agent/`:

@@ -7,6 +7,8 @@ state.json
 proxy.log
 proxy.log.*
 watchdog.log
+*.log
+.watchdog-state
 node_modules/
 
 # Временное

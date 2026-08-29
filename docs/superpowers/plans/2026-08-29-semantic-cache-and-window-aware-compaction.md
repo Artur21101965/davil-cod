@@ -54,16 +54,26 @@ describe('compactor.compactionThresholdFor', () => {
   });
 });
 
+// NOTE on test sizes: estimateTokens = chars / CHARS_PER_TOKEN(1.5). To hit
+// est ≈ N tokens use big = 'w'.repeat(N * 1.5) chars. compactOld reserves
+// KEEP_RECENT_TOKENS(30000) for the recent tail and only summarizes the OLD
+// prefix — so a request must exceed 30000 est to have any compactable head.
+// window 33000 → threshold 16500: est 32006 (> 16500, > 30000) compacts.
+// window 1048576 → threshold 100000; window 128000 → threshold 64000:
+// est 32006 is below both → unchanged. All sizes are also below global 60000,
+// so only the contextWindow option can trigger compaction.
+const EST_TOKENS = 32000;
+function bigMessage(estTokens) {
+  return { role: 'user', content: 'w'.repeat(Math.ceil(estTokens * 1.5)) };
+}
+
 describe('compactor.prepareMessages with contextWindow option', () => {
   it('compacts at a smaller threshold for a small-window target', async () => {
     loadFresh();
-    // Est must exceed threshold for the small window (16500) but stay below
-    // the global COMPACT_THRESHOLD, so only the option triggers compaction.
-    const small = 20000; // est tokens for window 33000 → threshold 16500
-    const big = 'word '.repeat(Math.ceil(small * 1.5));
+    // total est ≈ 32006 > threshold(33000)=16500 → compacts.
     const msgs = [
       { role: 'system', content: 'Ты — помощник. Отвечай кратко.' },
-      { role: 'user', content: big },
+      bigMessage(EST_TOKENS),
       { role: 'user', content: 'продолжай' },
     ];
     compactor.getSummary = async () => 'краткое резюме диалога';
@@ -74,11 +84,10 @@ describe('compactor.prepareMessages with contextWindow option', () => {
 
   it('does NOT compact under a large window where global threshold applies', async () => {
     loadFresh();
-    const small = 20000; // est tokens, well below global 60000
-    const big = 'word '.repeat(Math.ceil(small * 1.5));
+    // total est ≈ 32006 < threshold(1048576)=100000 → unchanged, getSummary unused.
     const msgs = [
       { role: 'system', content: 'Ты — помощник.' },
-      { role: 'user', content: big },
+      bigMessage(EST_TOKENS),
       { role: 'user', content: 'продолжай' },
     ];
     compactor.getSummary = async () => 'вызван не должен быть';
@@ -88,10 +97,8 @@ describe('compactor.prepareMessages with contextWindow option', () => {
 
   it('prevents prefer-small over global: window 128k still compacts only above 64k est', async () => {
     loadFresh();
-    // 30k est < 64k threshold → unchanged.
-    const mid = 30000;
-    const big = 'word '.repeat(Math.ceil(mid * 1.5));
-    const msgs = [{ role: 'user', content: big }];
+    // total est ≈ 32006 < threshold(128000)=64000 → unchanged.
+    const msgs = [bigMessage(EST_TOKENS)];
     compactor.getSummary = async () => 'никогда';
     const result = await compactor.prepareMessages(msgs, { contextWindow: 128000 });
     assert.deepEqual(result, msgs);
@@ -659,7 +666,9 @@ Run a prompt big enough that est > 16500 (codestral threshold) but < 60000 (old 
 cd ~/.config/opencode/llm-proxy
 python3 -c "
 import json, urllib.request, time
-big = 'word '*7000  # ~35k chars ≈ 23k est tokens — above codestral 16.5k, below old 60k
+big = 'word '*12000  # ~60000 chars ≈ 40000 est tokens — above codestral 16.5k thr AND
+                     # above KEEP_RECENT_TOKENS(30000) so a compactable head exists;
+                     # below the old 60k global threshold → only window-aware kicks in.
 msgs=[{'role':'user','content':big},{'role':'user','content':'подведи итог что ты помнишь?'}]
 body=json.dumps({'model':'tier-s','messages':msgs}).encode()
 req=urllib.request.Request('http://localhost:4000/v1/chat/completions',data=body,headers={'Authorization':'Bearer free-llm-proxy-2024','Content-Type':'application/json'})

@@ -143,6 +143,40 @@ test('health: 404 opens circuit breaker long (model unavailable for account)', (
   assert.strictEqual(health.isCircuitOpen(key), true);
 });
 
+test('health: warming cold bandit priors boosts brand-new providers', () => {
+  const health = require('../lib/health');
+  const key = `warm-${Date.now()}`;
+  const warmed = health.warmBanditPriors([key], ['low', 'med', 'high']);
+  assert.strictEqual(warmed, 3);
+  for (const b of ['low', 'med', 'high']) {
+    const p = health.getBandit()[b][key];
+    assert.ok(p, `prior for ${b} exists`);
+    assert.strictEqual(p.a, 6);
+    assert.strictEqual(p.b, 2);
+  }
+});
+
+test('health: warming never touches proven priors', () => {
+  const health = require('../lib/health');
+  const key = `proven-${Date.now()}`;
+  health.warmBanditPriors([key], ['low']);
+  health.getBandit().low[key] = { a: 40, b: 30 };
+  const before = JSON.stringify(health.getBandit().low[key]);
+  health.warmBanditPriors([key], ['low']);
+  assert.strictEqual(JSON.stringify(health.getBandit().low[key]), before, 'proven prior untouched');
+});
+
+test('health: provider-side 404 opens breaker short (upstream temporarily down)', () => {
+  const health = require('../lib/health');
+  const key = `cb404ps-${Date.now()}`;
+  health.recordFailure(key, 404, { providerSide: true });
+  const cb = health.getCircuitBreakers()[key];
+  const openMs = (cb && cb.openUntil) ? (cb.openUntil - cb.lastFailure) : 0;
+  // provider-side 404 → ~70s (vs 300s for a real missing model)
+  assert.ok(openMs <= 75000, 'expected short breaker, got ' + openMs + 'ms');
+  assert.ok(cb.openUntil > Date.now(), 'breaker should still be open');
+});
+
 test('health: user config can disable a catalog provider (enabled:false)', () => {
   // Simulate the merge logic: enabled:false must remove the provider.
   // The real merge lives in lib/providers loadConfig; here we verify the

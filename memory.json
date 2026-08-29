@@ -1,0 +1,126 @@
+{
+  "version": 1,
+  "saved": 1788035296503,
+  "facts": [
+    {
+      "text": "File providers.js modified with keepAlive agents",
+      "sourceHash": "26971a0f2e15f2a1a83205ec0bb63164a6e965ea94bf2d2f9717bf1ba703c4a0",
+      "created": 1788034996495,
+      "access": 0
+    },
+    {
+      "text": "maxSockets set to 64",
+      "sourceHash": "26971a0f2e15f2a1a83205ec0bb63164a6e965ea94bf2d2f9717bf1ba703c4a0",
+      "created": 1788034996495,
+      "access": 0
+    },
+    {
+      "text": "Latency reduced from ~0.5 s to ~0.016 s",
+      "sourceHash": "26971a0f2e15f2a1a83205ec0bb63164a6e965ea94bf2d2f9717bf1ba703c4a0",
+      "created": 1788034996495,
+      "access": 0
+    },
+    {
+      "text": "tier-splus mapped to minimax-m3",
+      "sourceHash": "26971a0f2e15f2a1a83205ec0bb63164a6e965ea94bf2d2f9717bf1ba703c4a0",
+      "created": 1788034996495,
+      "access": 0
+    },
+    {
+      "text": "Compressor threshold recalculated to 60 k",
+      "sourceHash": "26971a0f2e15f2a1a83205ec0bb63164a6e965ea94bf2d2f9717bf1ba703c4a0",
+      "created": 1788034996495,
+      "access": 0
+    },
+    {
+      "text": "File: providers.js",
+      "sourceHash": "0ec03378dbb8681e5f87ab0918a6da49f5bd7580b66fa4515e24a7b6f1722d01",
+      "created": 1788034996495,
+      "access": 0
+    },
+    {
+      "text": "Setting: maxSockets increased to 64",
+      "sourceHash": "0ec03378dbb8681e5f87ab0918a6da49f5bd7580b66fa4515e24a7b6f1722d01",
+      "created": 1788034996495,
+      "access": 0
+    },
+    {
+      "text": "Result: Speed improved from 0.5 to 0.016 seconds",
+      "sourceHash": "0ec03378dbb8681e5f87ab0918a6da49f5bd7580b66fa4515e24a7b6f1722d01",
+      "created": 1788034996495,
+      "access": 0
+    },
+    {
+      "text": "Change: tier-splus remapped to minimax",
+      "sourceHash": "0ec03378dbb8681e5f87ab0918a6da49f5bd7580b66fa4515e24a7b6f1722d01",
+      "created": 1788034996495,
+      "access": 0
+    },
+    {
+      "text": "Status: Ongoing work details recorded up to entry 465",
+      "sourceHash": "0ec03378dbb8681e5f87ab0918a6da49f5bd7580b66fa4515e24a7b6f1722d01",
+      "created": 1788034996495,
+      "access": 0
+    },
+    {
+      "text": "Добавлены keepAlive-агенты в providers.js с maxSockets 64",
+      "sourceHash": "26971a0f2e15f2a1a83205ec0bb63164a6e965ea94bf2d2f9717bf1ba703c4a0",
+      "created": 1788034996495,
+      "access": 0
+    },
+    {
+      "text": "Скорость отклика улучшилась с 0.5s до 0.016s",
+      "sourceHash": "26971a0f2e15f2a1a83205ec0bb63164a6e965ea94bf2d2f9717bf1ba703c4a0",
+      "created": 1788034996495,
+      "access": 0
+    },
+    {
+      "text": "Тип tier-splus перемаплен на minimax-m3",
+      "sourceHash": "26971a0f2e15f2a1a83205ec0bb63164a6e965ea94bf2d2f9717bf1ba703c4a0",
+      "created": 1788034996495,
+      "access": 0
+    },
+    {
+      "text": "Компактор пересчитан до порога 60k",
+      "sourceHash": "26971a0f2e15f2a1a83205ec0bb63164a6e965ea94bf2d2f9717bf1ba703c4a0",
+      "created": 1788034996495,
+      "access": 0
+    },
+    {
+      "text": "Работа задокументирована в Progress Notes (записи 0–506)",
+      "sourceHash": "26971a0f2e15f2a1a83205ec0bb63164a6e965ea94bf2d2f9717bf1ba703c4a0",
+      "created": 1788034996495,
+      "access": 0
+    },
+    {
+      "text": "Project objective: Compress the old dialogue segment into a PODDOSE format containing core tasks, decisions, progress, and key findings.",
+      "sourceHash": "b11ca035bcd8d59063a0261dae8d22e498757718ba6a065a2f618d65d87687e0",
+      "created": 1788035163181,
+      "access": 0
+    },
+    {
+      "text": "Source files involved: Multiple code and documentation files were examined (e.g., main implementation files, test suites, configuration scripts).",
+      "sourceHash": "b11ca035bcd8d59063a0261dae8d22e498757718ba6a065a2f618d65d87687e0",
+      "created": 1788035163182,
+      "access": 0
+    },
+    {
+      "text": "Identified issue: Inconsistent terminology between modules causing confusion in error messages and function calls.",
+      "sourceHash": "b11ca035bcd8d59063a0261dae8d22e498757718ba6a065a2f618d65d87687e0",
+      "created": 1788035163182,
+      "access": 0
+    },
+    {
+      "text": "Resolution implemented: Standardized naming conventions across all files and updated error-handling logic accordingly.",
+      "sourceHash": "b11ca035bcd8d59063a0261dae8d22e498757718ba6a065a2f618d65d87687e0",
+      "created": 1788035163182,
+      "access": 0
+    },
+    {
+      "text": "Current status: All major functional areas have been reviewed; only minor cleanup and formatting remain before final delivery.",
+      "sourceHash": "b11ca035bcd8d59063a0261dae8d22e498757718ba6a065a2f618d65d87687e0",
+      "created": 1788035163182,
+      "access": 0
+    }
+  ]
+}

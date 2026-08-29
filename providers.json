@@ -433,5 +433,25 @@
     "free": true,
     "category": "vision",
     "context_window": 262144
+  },
+  "or-ling-3-0-flash-fin-free": {
+    "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+    "model": "inclusionai/ling-3.0-flash-fin:free",
+    "priority": 20,
+    "dailyLimit": 50,
+    "keyHint": "openrouter.ai → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_OPENROUTER_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "or-gemma-4-26b-a4b-it-free": {
+    "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+    "model": "google/gemma-4-26b-a4b-it:free",
+    "priority": 20,
+    "dailyLimit": 50,
+    "keyHint": "openrouter.ai → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_OPENROUTER_APIKEY",
+    "free": true,
+    "category": "general"
   }
 }
