@@ -264,6 +264,34 @@ test('providers: HF env var is mapped (PROVIDER_HF_APIKEY)', () => {
   assert.ok(/HF:\s*'HF'/.test(src), 'HF prefix mapped in providers.js');
 });
 
+test('health: getContextStats returns a working ContextStats singleton', () => {
+  const health = require('../lib/health');
+  const cs = health.getContextStats();
+  assert.ok(cs && typeof cs.record === 'function' && typeof cs.serialize === 'function', 'singleton API');
+  cs.record({ ts: Date.now(), provider: 'test-provider', real: 1000, win: 2000, status: 200 });
+  const s = cs.snapshot().buckets.find(b => b.provider === 'test-provider');
+  assert.ok(s && s.requests >= 1, 'record landed in singleton');
+});
+
+test('health: saveState writes stats.context as buckets array (state restored)', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const statePath = path.join(__dirname, '..', 'state.json');
+  const orig = fs.existsSync(statePath) ? fs.readFileSync(statePath, 'utf8') : null;
+  try {
+    const health = require('../lib/health');
+    health.getContextStats().record({ ts: Date.now(), provider: 'roundtrip-ctx', real: 1000, win: 2000, status: 200 });
+    health.saveState();
+    const saved = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+    assert.ok(saved.stats && Array.isArray(saved.stats.context.buckets), 'stats.context persisted as buckets array');
+    health.getContextStats().load(saved.stats.context);
+    assert.ok(health.getContextStats().snapshot().buckets.find(b => b.provider === 'roundtrip-ctx'), 'bucket survives save→load');
+  } finally {
+    if (orig === null) { try { fs.unlinkSync(statePath); } catch {} }
+    else { try { fs.writeFileSync(statePath, orig); } catch {} }
+  }
+});
+
 // Stop background timers so the test process can exit (health.js sets setInterval)
 require('../lib/health')._stopTimers();
 require('../lib/cache')._stopTimers();
