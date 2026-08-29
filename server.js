@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { LRUCache } = require('./lib/cache');
 const { PROVIDERS, MODEL_MAP, callProvider, reloadProviders } = require('./lib/providers');
-const { loadState, initHealth, isCircuitOpen, recordSuccess, recordFailure, recordRequest, recordTokens, getHealth, getStats, recordRecent, recordRpm, getRecent, getRpm, recordSelection, getLastSelection, getBandit, recordBandit } = require('./lib/health');
+const { loadState, initHealth, isCircuitOpen, recordSuccess, recordFailure, recordRequest, recordTokens, getHealth, getStats, recordRecent, recordRpm, getRecent, getRpm, recordSelection, getLastSelection, getBandit, recordBandit, warmBanditPriors } = require('./lib/health');
 const { checkRateLimit } = require('./lib/rateLimit');
 const { handleDashboard } = require('./lib/dashboard');
 const { acquire, stats: poolStats } = require('./lib/pool');
@@ -14,7 +14,8 @@ const { bucket, pick: banditPick, isTransientLimit } = require('./lib/bandit');
 const { StringDecoder } = require('string_decoder');
 const logger = require('./lib/logger');
 const { KEY_GROUPS, readKeys, saveKeys, validateKey, getStoredKey } = require('./lib/setup');
-const { prepareMessages, estimateTokens } = require('./lib/compactor');
+const { prepareMessages, estimateTokens, setMemory: compactorSetMemory } = require('./lib/compactor');
+const { create: createMemoryStore } = require('./lib/memory-store');
 
 // Load persisted state
 loadState();
@@ -28,6 +29,14 @@ if (stale.length > 0) {
   }
   logger.info('Cleaned stale health entries', { removed: stale });
 }
+
+// Warm bandit priors for enabled providers with no/low history so brand-new
+// models (e.g. or-minimax-m3-free) are explored promptly instead of ignored.
+const warmed = warmBanditPriors(
+  Object.keys(PROVIDERS).filter(k => PROVIDERS[k].enabled !== false),
+  ['low', 'med', 'high']
+);
+if (warmed > 0) logger.info('Warmed bandit priors', { warmed });
 
 const cache = new LRUCache(500, 3600000, false, true); // 4th arg: semantic normalize ON
 require('./lib/cache')._activeCache = cache;
@@ -53,6 +62,25 @@ function getArg(name, defaultVal) {
 const PORT = parseInt(process.env.PORT || getArg('port', config.port || '4000'));
 const AUTH_KEY = process.env.AUTH || getArg('auth', config.auth || '');
 const RATE_LIMIT = config.rateLimit || { maxRequests: 100, windowMs: 60000 };
+
+// --- Долговременная память (vector memory) ---
+// По умолчанию включена: факты берутся побочно от компакции (без лишних вызовов
+// LLM) и подмешиваются в контекст по релевантности. config.memory.enabled=false —
+// слой отключается целиком.
+const MEMORY_CONFIG = Object.assign(
+  { enabled: true, topK: 3, minSimilarity: 0.05, coverageForSkip: 0.6 },
+  (config.memory && typeof config.memory === 'object') ? config.memory : {}
+);
+const memStore = MEMORY_CONFIG.enabled ? createMemoryStore({ filePath: path.join(__dirname, 'memory.json') }) : null;
+if (memStore) compactorSetMemory(memStore);
+
+// --- Семантический кэш ---
+// На промахе точного ключа ищет закэшированный диалог с похожим нормализованным
+// текстом (Dice по символьным триграммам). config.semcache.enabled=false отключает.
+const SEMCACHE_CONFIG = Object.assign(
+  { enabled: true, minSimilarity: 0.85 },
+  (config.semcache && typeof config.semcache === 'object') ? config.semcache : {}
+);
 
 // Health check
 const healthIntervals = {}; // key -> { nextCheck, backoff }
@@ -126,6 +154,26 @@ async function healthCheck() {
 setInterval(healthCheck, 30000);
 setTimeout(healthCheck, 1000);
 
+// Периодический сейв долговременной памяти (вдобавок к shutdown).
+if (memStore) setInterval(() => memStore.save(), 60000);
+
+// Извлекает usage из SSE-чанка (если провайдер шлёт его в последнем чанке).
+function collectReasonUsage(str, usageObj) {
+  if (!str || !/data: /.test(str)) return;
+  for (const line of str.split('\n')) {
+    const m = line.match(/^data: (.+)$/);
+    if (!m || m[1].trim() === '[DONE]') continue;
+    try {
+      const obj = JSON.parse(m[1]);
+      if (obj.usage && (obj.usage.prompt_tokens || obj.usage.completion_tokens)) {
+        usageObj.prompt_tokens = obj.usage.prompt_tokens;
+        usageObj.completion_tokens = obj.usage.completion_tokens;
+        usageObj.total_tokens = obj.usage.total_tokens;
+      }
+    } catch {}
+  }
+}
+
 // Извлекает все значения content из SSE-чанка. Возвращает true, если есть
 // хотя бы одно непустое (реальный токен, а не пустая дельта).
 function chunkHasToken(str) {
@@ -135,6 +183,22 @@ function chunkHasToken(str) {
     if (m[1].trim().length > 0) return true;
   }
   return false;
+}
+
+// Последний user-текст — для оценки, насколько короткий ответ легитимен.
+function lastUserText(messages) {
+  if (!Array.isArray(messages)) return '';
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m && m.role === 'user') {
+      if (typeof m.content === 'string') return m.content;
+      if (Array.isArray(m.content)) {
+        const t = m.content.filter(c => c && c.type === 'text').map(c => c.text || '').join(' ');
+        if (t) return t;
+      }
+    }
+  }
+  return '';
 }
 
 // Chat completion handler
@@ -185,29 +249,41 @@ async function handleChatCompletion(req, res, body) {
     if (visionChain.length > 0) {
       logger.info('Vision pipeline: распознаю скриншот', { chain: visionChain.map(p => p.key).join(',') });
       let extracted = '';
-      for (const visionProvider of visionChain) {
-        try {
-          const visionBody = {
-            model: visionProvider.model,
-            messages: [{
-              role: 'user',
-              content: [
-                { type: 'text', text: 'Распознай и извлеки ВЕСЬ текст с изображения (ошибка, код, сообщение). Верни только содержимое, без комментариев. Если это код — верни код как есть.' },
-                ...(Array.isArray(body.messages) ? body.messages.flatMap((m) => (Array.isArray(m.content) ? m.content.filter((c) => c && (c.type === 'image_url' || c.type === 'image' || c.type === 'input_image')).map((c) => {
-                  // Normalize any image part to the universal image_url format
-                  const url = c.image_url?.url || c.image?.url || c.image?.data || (c.image && typeof c.image === 'string' ? c.image : null) || c.url;
-                  return url ? { type: 'image_url', image_url: { url } } : null;
-                }).filter(Boolean) : [])) : []),
-              ],
-            }],
-            max_tokens: 2000,
-          };
-          const visionRes = await callProvider(visionProvider, visionBody);
-          extracted = visionRes.data?.choices?.[0]?.message?.content || visionRes.data?.choices?.[0]?.message?.reasoning || '';
-          if (extracted) { logger.info('Vision pipeline: распознал ' + visionProvider.key); break; }
-        } catch (err) {
-          logger.warn('Vision pipeline: ' + visionProvider.key + ' не сработал', { error: err.message.slice(0, 80) });
+      // PARALLEL vision attempt: fire all vision providers at once and take the
+      // first one that extracts text. Previously each was tried IN SEQUENCE,
+      // so a slow/failed first provider meant the pipeline waited provider
+      // after provider — the "two chats think forever" pattern for screenshots.
+      const visionAttempts = visionChain.map((visionProvider) => (async () => {
+        const visionBody = {
+          model: visionProvider.model,
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'text', text: 'Распознай и извлеки ВЕСЬ текст с изображения (ошибка, код, сообщение). Верни только содержимое, без комментариев. Если это код — верни код как есть.' },
+              ...(Array.isArray(body.messages) ? body.messages.flatMap((m) => (Array.isArray(m.content) ? m.content.filter((c) => c && (c.type === 'image_url' || c.type === 'image' || c.type === 'input_image')).map((c) => {
+                // Normalize any image part to the universal image_url format
+                const url = c.image_url?.url || c.image?.url || c.image?.data || (c.image && typeof c.image === 'string' ? c.image : null) || c.url;
+                return url ? { type: 'image_url', image_url: { url } } : null;
+              }).filter(Boolean) : [])) : []),
+            ],
+          }],
+          max_tokens: 2000,
+        };
+        const visionRes = await callProvider(visionProvider, visionBody);
+        const text = visionRes.data?.choices?.[0]?.message?.content || visionRes.data?.choices?.[0]?.message?.reasoning || '';
+        if (text) {
+          logger.info('Vision pipeline: распознал ' + visionProvider.key);
+          return text;
         }
+        throw new Error(visionProvider.key + ': пустой OCR');
+      })());
+      // First provider to yield text wins; hard failures (429/5xx) are skipped
+      // without blocking the others. If ALL fail, extracted stays '' and the
+      // request proceeds without vision context (as before).
+      try {
+        extracted = await Promise.any(visionAttempts);
+      } catch {
+        logger.warn('Vision pipeline: все вижн-провайдеры не сработали', { tried: visionChain.map(p => p.key) });
       }
       const cleaned = stripThink(extracted, true);
       logger.info('Vision pipeline: скриншот распознан', { chars: cleaned.length });
@@ -239,16 +315,54 @@ async function handleChatCompletion(req, res, body) {
   // Compact overly large conversations so free models don't reject on context.
   // Runs AFTER the vision pipeline (images already converted to text above).
   if (Array.isArray(body.messages) && body.messages.length > 0) {
-    body.messages = await prepareMessages(body.messages);
+    body.messages = await prepareMessages(body.messages, { contextWindow: PROVIDERS[targetProviderKey]?.context_window || 0 });
   }
 
-  // Check cache (works for both streaming and non-streaming)
-  const cached = cache.get(effectiveModel, body.messages, body.temperature);
-  if (cached) {
-    logger.request({ model: requestedModel, provider: 'cache', status: 200, cached: true });
-    recordRecent({ model: requestedModel, provider: 'cache', status: 200, latency: 0, cached: true });
+  // --- Long-term memory recall ---
+  // Подмешиваем релевантные факты из прошлых сессий (векторная память) как
+  // user-сообщение В НАЧАЛЕ диалога — после системных правил, до кэша. Так
+  // ключ кэша (normalize игнорирует system, но учитывает user) различает разные
+  // наборы фактов, и ответы не отравляются чужим кэшем.
+  if (memStore) {
+    try {
+      const userTexts = [];
+      const userMsgs = body.messages.filter(m => m && m.role === 'user');
+      for (const m of userMsgs.slice(-3)) {
+        if (typeof m.content === 'string') userTexts.push(m.content);
+        else if (Array.isArray(m.content)) userTexts.push(m.content.filter(c => c && c.type === 'text').map(c => c.text || '').join(' '));
+      }
+      const query = userTexts.join('\n').trim();
+      if (query.length > 20) {
+        const hits = memStore.recall(query, { topK: MEMORY_CONFIG.topK, minSimilarity: MEMORY_CONFIG.minSimilarity });
+        if (hits.length > 0) {
+          // Не подмешиваем факт, который уже покрыт резюме компактора или
+          // недавними сообщениями этой же сессии (защита от дублей).
+          const existing = body.messages
+            .filter(m => m && typeof m.content === 'string')
+            .map(m => m.content)
+            .concat(userTexts);
+          const fresh = hits.filter(f => !memStore.isCovered(f.text, existing));
+          if (fresh.length > 0) {
+            let memoryMsg = fresh.map(f => f.text).join('\n');
+            if (memoryMsg) {
+              const insertAt = body.messages.findIndex(m => m && m.role !== 'system');
+              const block = { role: 'user', content: '[Память: релевантные факты из прошлого]\n' + memoryMsg };
+              if (insertAt === -1) body.messages.unshift(block);
+              else body.messages.splice(insertAt, 0, block);
+              logger.info('Memory recall', { facts: fresh.length, covered: hits.length - fresh.length });
+            }
+          }
+        }
+      }
+    } catch (err) {
+      logger.error('Memory recall error', { message: err.message });
+    }
+  }
+
+  // Replays a previously cached completion (exact or semantic hit), preserving
+  // the stream/non-stream shape the client asked for.
+  function serveCached(res, cached, isStreaming) {
     if (isStreaming) {
-      // Replay cached answer as an SSE stream
       res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
       const content = cached.choices?.[0]?.message?.content || '';
       res.write(`data: ${JSON.stringify({ id: 'chatcmpl-cached', object: 'chat.completion.chunk', created: Math.floor(Date.now() / 1000), model: cached.model, choices: [{ index: 0, delta: { role: 'assistant', content: '' }, finish_reason: null }] })}\n\n`);
@@ -256,11 +370,30 @@ async function handleChatCompletion(req, res, body) {
       res.write(`data: ${JSON.stringify({ id: 'chatcmpl-cached', object: 'chat.completion.chunk', created: Math.floor(Date.now() / 1000), model: cached.model, choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] })}\n\n`);
       res.write('data: [DONE]\n\n');
       res.end();
+    } else {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(cached));
+    }
+  }
+
+  // Check cache (works for both streaming and non-streaming)
+  const cached = cache.get(effectiveModel, body.messages, body.temperature);
+  if (cached) {
+    logger.request({ model: requestedModel, provider: 'cache', status: 200, cached: true });
+    recordRecent({ model: requestedModel, provider: 'cache', status: 200, latency: 0, cached: true });
+    serveCached(res, cached, isStreaming);
+    return;
+  }
+
+  // Semantic cache: same intent, rephrased wording → replay without a new LLM call.
+  if (SEMCACHE_CONFIG.enabled) {
+    const semantic = cache.getSemantic(effectiveModel, body.messages, body.temperature, SEMCACHE_CONFIG.minSimilarity);
+    if (semantic) {
+      logger.request({ model: requestedModel, provider: 'semcache', status: 200, cached: true });
+      recordRecent({ model: requestedModel, provider: 'semcache', status: 200, latency: 0, cached: true });
+      serveCached(res, semantic.value, isStreaming);
       return;
     }
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(cached));
-    return;
   }
 
   // Weighted selection among healthy providers
@@ -280,7 +413,7 @@ async function handleChatCompletion(req, res, body) {
   // Only applies when the request is big enough to matter, so small/typical
   // requests keep the full fast pool.
   const requestTokens = estimateTokens(body.messages);
-  const MIN_WINDOW = 128000; // below this we don't filter (typical requests)
+  const MIN_WINDOW = 50000; // below this we don't filter (typical requests)
   let windowPool = healthyProviders;
   if (requestTokens > MIN_WINDOW) {
     const capable = healthyProviders.filter(([_, p]) => {
@@ -337,18 +470,21 @@ async function handleChatCompletion(req, res, body) {
     ? pool.map(([k, p]) => ({ key: k, provider: p })).filter(s => s.key !== selected[0].key)
       .sort((a, b) => (getHealth()[b.key]?.score || 0) - (getHealth()[a.key]?.score || 0))
     : [];
-  const enabledProviders = selected.length > 0
+  let enabledProviders = selected.length > 0
     ? [selected[0]].concat(restOfPool).map(s => [s.key, s.provider])
     : Object.entries(PROVIDERS).filter(([_, p]) => p.enabled)
       .sort((a, b) => (getHealth()[b[0]]?.score || 50) - (getHealth()[a[0]]?.score || 50));
 
-  // Ensure the requested model's mapped provider is at least IN the candidate
-  // list (it may have been filtered out), but DON'T force it to the front —
-  // the weighted selection above should pick the fastest/healthiest provider.
+  // Put the requested model's mapped provider FIRST. It's the only provider
+  // guaranteed to accept this tier/model — the rest are fallbacks (many reject
+  // tier-* requests with 400/422). Trying them before the target produced huge
+  // serial fallback chains (10+ sequential HTTP calls per request), which looked
+  // like the "model thinking forever". Correct mapping beats weighted guessing.
   if (MODEL_MAP[requestedModel] && PROVIDERS[targetProviderKey]) {
-    if (!enabledProviders.some(([k]) => k === targetProviderKey)) {
-      enabledProviders.unshift([targetProviderKey, PROVIDERS[targetProviderKey]]);
-    }
+    enabledProviders = [
+      [targetProviderKey, PROVIDERS[targetProviderKey]],
+      ...enabledProviders.filter(([k]) => k !== targetProviderKey),
+    ];
   }
 
   if (enabledProviders.length === 0) {
@@ -359,7 +495,13 @@ async function handleChatCompletion(req, res, body) {
 
   const errors = [];
 
-  for (const [key, provider] of enabledProviders) {
+  // Cap serial fallback attempts. Trying provider after provider sequentially
+  // made a single tier-* request walk 10+ providers (each a real HTTP call),
+  // looking like the model "thinks forever". target-first above fixes the common
+  // case (right provider immediately); this cap bounds the worst case.
+  const fallbackProviders = enabledProviders.slice(0, 5);
+
+  for (const [key, provider] of fallbackProviders) {
     if (isCircuitOpen(key)) {
       errors.push(key + ': circuit breaker open');
       continue;
@@ -381,14 +523,13 @@ async function handleChatCompletion(req, res, body) {
       getHealth()[key].latency = Math.min(result.latency || 0, 60000);
       getHealth()[key].lastCheck = Date.now();
 
-      // For non-stream, verify the response isn't empty BEFORE recording success.
       if (!isStreaming && result.data) {
-        delete result.data.nvext;
-        if (result.data.choices?.[0]) {
-          fixReasoningMessage(result.data.choices[0].message);
-          cleanMessage(result.data.choices[0].message);
-        }
-        if (isTooShort(result.data)) {
+         delete result.data.nvext;
+         if (result.data.choices?.[0]) {
+           fixReasoningMessage(result.data.choices[0].message);
+           cleanMessage(result.data.choices[0].message);
+         }
+         if (isTooShort(result.data, lastUserText(body.messages))) {
           // Пустой/мусорный ответ (провайдер-глитч) НЕ считается успехом — пробуем следующего.
           const msg = key + ': empty or too short response';
           errors.push(msg);
@@ -419,6 +560,7 @@ async function handleChatCompletion(req, res, body) {
         });
 
         // Сбор контент-токенов для кэша (strip think).
+        const streamUsage = {};
         const collect = (str) => {
           const lines = str.split('\n');
           for (const line of lines) {
@@ -428,6 +570,12 @@ async function handleChatCompletion(req, res, body) {
               const obj = JSON.parse(m[1]);
               const delta = obj.choices?.[0]?.delta?.content;
               if (typeof delta === 'string') chunks.push(stripThink(delta, false));
+              // OpenRouter / Nebius etc. put usage in a final chunk. Keep it.
+              if (obj.usage && (obj.usage.prompt_tokens || obj.usage.completion_tokens)) {
+                streamUsage.prompt_tokens = obj.usage.prompt_tokens;
+                streamUsage.completion_tokens = obj.usage.completion_tokens;
+                streamUsage.total_tokens = obj.usage.total_tokens;
+              }
             } catch {}
           }
         };
@@ -444,15 +592,17 @@ async function handleChatCompletion(req, res, body) {
           recordSelection(key, provider.model, requestedModel);
           const { Transform } = require('stream');
           const reasonDec = new StringDecoder('utf8');
+          const reasonUsage = {};
           const cleaner = new Transform({
             transform(chunk, encoding, callback) {
               const str = reasonDec.write(chunk);
+              collectReasonUsage(str, reasonUsage);
               collect(str);
               callback(null, cleanStr(str));
             },
             flush(callback) {
               const tail = reasonDec.end();
-              if (tail) { collect(tail); const tailStr = cleanStr(tail); if (tailStr) this.push(tailStr); }
+              if (tail) { collectReasonUsage(tail, reasonUsage); collect(tail); const tailStr = cleanStr(tail); if (tailStr) this.push(tailStr); }
               callback();
             }
           });
@@ -460,6 +610,7 @@ async function handleChatCompletion(req, res, body) {
             const full = chunks.join('');
             // Bandit учится по качеству: пустой/мусорный стрим = фейл.
             recordBandit(complexityBucket, key, full.trim().length >= MIN_ANSWER_LEN);
+            if (Object.keys(reasonUsage).length > 0) recordTokens(key, reasonUsage);
             if (full.trim().length >= MIN_ANSWER_LEN) {
               cache.set(effectiveModel, body.messages, body.temperature, {
                 id: 'chatcmpl-cached',
@@ -487,9 +638,17 @@ async function handleChatCompletion(req, res, body) {
         // иначе русский текст дробится на '' символ.
         const rawBuf = [];
         const streamDec = new StringDecoder('utf8');
+        // Адаптивный таймаут первого токена: используем измеренную скорость
+        // провайдера (latency от реальных запросов). Быстрые провайдеры не ждут
+        // полные 5с перед fallback'ом, а медленные (но рабочие) не отбрасываются
+        // слишком рано. Диапазон 2.5-8с для защиты от обоих крайностей.
+        const knownLat = getHealth()[key]?.latency || 0;
+        const firstTokenWait = knownLat > 0
+          ? Math.max(2500, Math.min(8000, Math.round(knownLat * 2)))
+          : 5000;
         const firstToken = new Promise((resolve) => {
           let done = false;
-          const timer = setTimeout(() => { if (!done) { done = true; resolve(false); } }, 5000);
+          const timer = setTimeout(() => { if (!done) { done = true; resolve(false); } }, firstTokenWait);
           const finish = (ok) => { if (!done) { done = true; clearTimeout(timer); resolve(ok); } };
           result.stream.on('data', (chunk) => {
             const str = streamDec.write(chunk);
@@ -556,6 +715,7 @@ async function handleChatCompletion(req, res, body) {
           const full = chunks.join('');
           // Bandit учится по качеству: обрыв/мусорный стрим = фейл.
           recordBandit(complexityBucket, key, full.trim().length >= MIN_ANSWER_LEN);
+          if (Object.keys(streamUsage).length > 0) recordTokens(key, streamUsage);
           if (full.trim().length >= MIN_ANSWER_LEN) {
             cache.set(effectiveModel, body.messages, body.temperature, {
               id: 'chatcmpl-cached',
@@ -612,13 +772,24 @@ async function handleChatCompletion(req, res, body) {
         getHealth()[key].reason = 'не отвечает';
       }
       getHealth()[key].score = Math.max(0, (getHealth()[key].score || 50) - (statusCode === 429 ? 5 : 10));
-      recordFailure(key, statusCode);
-      // 404 = model not available for this account — disable permanently
+      recordFailure(key, statusCode, statusCode === 404 && err.providerSide ? { providerSide: true } : undefined);
+      // 404 = model not available. Two distinct flavors:
+      //  - plain 404 («does not exist») → disable permanently (model gone from OpenRouter).
+      //  - provider-side 404 (Nvidia quota/upstream failing) → NOT permanent — the model
+      //    may recover. Mark it down hard so routing prefers others, and let the periodic
+      //    health-check re-enable it when it comes back.
       if (statusCode === 404) {
-        provider.enabled = false;
-        getHealth()[key].status = 'disabled';
-        getHealth()[key].reason = 'отключён автоматически (404)';
-        logger.warn('Provider auto-disabled (404)', { key, model: provider.model });
+        if (err.providerSide) {
+          getHealth()[key].status = 'error';
+          getHealth()[key].reason = 'провайдер временно недоступен (404)';
+          getHealth()[key].score = Math.max(0, (getHealth()[key].score || 50) - 25);
+          logger.warn('Provider temporarily down (provider-side 404)', { key, model: provider.model });
+        } else {
+          provider.enabled = false;
+          getHealth()[key].status = 'disabled';
+          getHealth()[key].reason = 'отключён автоматически (404)';
+          logger.warn('Provider auto-disabled (404)', { key, model: provider.model });
+        }
       }
     }
   }
@@ -628,7 +799,7 @@ async function handleChatCompletion(req, res, body) {
   const allSoft = errors.length > 0 && errors.every(e => !/429|401|403|404/.test(e));
   if (allSoft && enabledProviders.length > 1) {
     await new Promise(r => setTimeout(r, 1500));
-    for (const [key, provider] of enabledProviders) {
+    for (const [key, provider] of fallbackProviders) {
       if (isCircuitOpen(key)) continue;
       try {
         const release = await acquire(key);
@@ -644,7 +815,7 @@ async function handleChatCompletion(req, res, body) {
             fixReasoningMessage(result.data.choices[0].message);
             cleanMessage(result.data.choices[0].message);
           }
-          if (isTooShort(result.data)) {
+if (isTooShort(result.data, lastUserText(body.messages))) {
             recordFailure(key, 0);
             recordRequest(key, false, key + ': empty or too short response (retry)');
             recordBandit(complexityBucket, key, false);
@@ -905,6 +1076,25 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // POST /v1/cache/clear — drop the in-memory semantic cache without a restart.
+  // Handy when you tweaked providers/models and don't want stale answers served.
+  if (parsedUrl.pathname === '/v1/cache/clear' && req.method === 'POST') {
+    if (AUTH_KEY) {
+      const apiKey = (req.headers.authorization || '').replace('Bearer ', '').trim();
+      const keyFromQuery = parsedUrl.searchParams.get('key');
+      if (apiKey !== AUTH_KEY && keyFromQuery !== AUTH_KEY) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'Invalid API key' } }));
+        return;
+      }
+    }
+    const before = cache.stats().size || 0;
+    cache.clear();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true, cleared: before }));
+    return;
+  }
+
   // POST /v1/shorts — generate a vertical short video via the tools generator.
   // Body: { prompt, duration?, format? ("9:16"/"16:9"/"1:1"), steps? }
   if (parsedUrl.pathname === '/v1/shorts' && req.method === 'POST') {
@@ -1048,5 +1238,11 @@ server.listen(PORT, process.env.HOST || '127.0.0.1', () => {
   console.log('Dashboard: http://localhost:' + PORT + '/');
 });
 
-process.on('SIGINT', () => { require('./lib/health').saveState(); cache.persist(); server.close(() => process.exit(0)); });
-process.on('SIGTERM', () => { require('./lib/health').saveState(); cache.persist(); server.close(() => process.exit(0)); });
+const _shutdown = () => {
+  if (memStore) { memStore.stopTimer(); memStore.save(); }
+  require('./lib/health').saveState();
+  cache.persist();
+  server.close(() => process.exit(0));
+};
+process.on('SIGINT', _shutdown);
+process.on('SIGTERM', _shutdown);
