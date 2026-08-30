@@ -88,4 +88,13 @@ describe('taskclassify.classify', () => {
     loadFresh();
     assert.equal(classify.classify([{ role: 'user', content: 'отрефактори и оптимизируй этот цикл' }]), 'coding');
   });
+
+  it('classifies search terms (how it works, explain X, what does it mean)', () => {
+    loadFresh();
+    assert.equal(classify.classify([{ role: 'user', content: 'как работает kafka' }]), 'search');
+    assert.equal(classify.classify([{ role: 'user', content: 'расскажи про квантовые компьютеры' }]), 'search');
+    assert.equal(classify.classify([{ role: 'user', content: 'как настроить nginx' }]), 'search');
+    assert.equal(classify.classify([{ role: 'user', content: 'что означает аннотация в java' }]), 'search', 'объяснение термина не reasoning');
+    assert.equal(classify.classify([{ role: 'user', content: 'найди библиотеку для парсинга' }]), 'search');
+  });
 });
