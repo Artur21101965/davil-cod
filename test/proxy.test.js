@@ -490,3 +490,12 @@ test('dashboard: карточка экономии + сохранение _savin
   assert.ok(html.includes('_savings = _statsData.savings'), 'сохранение savings из stats');
   assert.ok(html.includes("savingsBasis"), 'пояснение расчёта');
 });
+
+test('dashboard: KPI «Успех сегодня» показывается крупно', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'lib', 'dashboard.js'), 'utf8');
+  assert.ok(html.includes('kpiToday'), 'чип Успех сегодня');
+  assert.ok(html.includes('_statsData.today'), 'читает today из stats');
+  assert.ok(html.includes('td.successRate'), 'показывает successRate');
+});

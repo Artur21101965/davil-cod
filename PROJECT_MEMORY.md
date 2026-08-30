@@ -40,7 +40,7 @@
 - **Простая задача ≠ reasoning-модель** (30.08): при `taskCategory`=chat/search weighted-selection штрафует reasoning ×0.15 и vision ×0.3 — простой факт/поиск идёт на быстрые general, а не «думает вслух» на дорогих reasoning-моделях. E2E: «столица Франции» на tier-s → «Париж» за 0.46с.
 
 ## Тесты
-- 253 теста: `node --test test/*.test.js` (proxy, clean, compactor, memory, memory-store, vision, dashboard, semcache, contextstats, taskclassify, methodology, modeldb, modelscan, modelmanager)
+- 254 теста: `node --test test/*.test.js` (proxy, clean, compactor, memory, memory-store, vision, dashboard, semcache, contextstats, taskclassify, methodology, modeldb, modelscan, modelmanager)
 - Перед публикацией: тесты + `node --check server.js lib/*.js`
 - `POST /v1/cache/clear` и `POST /v1/reload` требуют auth (Bearer); память чистится/сейвится автоматически
 
