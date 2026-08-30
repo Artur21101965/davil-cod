@@ -63,4 +63,29 @@ describe('taskclassify.classify', () => {
     loadFresh();
     assert.equal(classify.classify([{ role: 'user', content: [{ type: 'text', text: 'добавь обработку ошибок в JS' }] }]), 'coding');
   });
+
+  it('classifies compare/analyze as reasoning', () => {
+    loadFresh();
+    assert.equal(classify.classify([{ role: 'user', content: 'сравни два подхода и проанализируй, что быстрее' }]), 'reasoning');
+  });
+
+  it('classifies explaining a code snippet as coding', () => {
+    loadFresh();
+    assert.equal(classify.classify([{ role: 'user', content: 'объясни, что делает эта функция async fetchData()' }]), 'coding');
+  });
+
+  it('classifies fix/import missing as coding even without code fences', () => {
+    loadFresh();
+    assert.equal(classify.classify([{ role: 'user', content: 'не работает — поправь, где потерялся return' }]), 'coding');
+  });
+
+  it('classifies calculation with percentage as reasoning', () => {
+    loadFresh();
+    assert.equal(classify.classify([{ role: 'user', content: 'сколько процентов от 5000 составят 250?' }]), 'reasoning');
+  });
+
+  it('classifies refactor/optimize as coding', () => {
+    loadFresh();
+    assert.equal(classify.classify([{ role: 'user', content: 'отрефактори и оптимизируй этот цикл' }]), 'coding');
+  });
 });
