@@ -63,4 +63,27 @@ describe('methodology', () => {
     const result = methodology.injectMethodology(messages, 'chat', { enabled: false });
     assert.deepEqual(result, messages);
   });
+
+  it('uses custom prompt from config.prompts for a category', () => {
+    loadFresh();
+    const options = { enabled: true, prompts: { coding: 'КАСТОМНЫЙ КОДЕР: сначала тест.' } };
+    const text = methodology.getMethodology('coding', options);
+    assert.ok(text.includes('КАСТОМНЫЙ КОДЕР'));
+    assert.ok(!text.includes('Методолог (craft)'), 'default replaced');
+  });
+
+  it('falls back to default prompt when category not customized', () => {
+    loadFresh();
+    const options = { enabled: true, prompts: { coding: 'КАСТОМНЫЙ КОДЕР' } };
+    const text = methodology.getMethodology('reasoning', options);
+    assert.ok(text.includes('Методолог (thinking)'), 'unmatched category keeps default');
+  });
+
+  it('injectMethodology passes custom prompts through', () => {
+    loadFresh();
+    const messages = [{ role: 'user', content: 'напиши функцию' }];
+    const result = methodology.injectMethodology(messages, 'coding', { enabled: true, prompts: { coding: 'КАСТОМ КОД' } });
+    const sysMsg = result.find(m => m.role === 'system');
+    assert.ok(sysMsg.content.includes('КАСТОМ КОД'), 'custom prompt injected');
+  });
 });

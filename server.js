@@ -87,8 +87,10 @@ const SEMCACHE_CONFIG = Object.assign(
 
 // --- Методолог (инженерная дисциплина в промпте) ---
 // config.methodology.enabled=false отключает. По умолчанию включён.
+// config.methodology.prompts.{category} переопределяет текст промпта для
+// конкретной категории (незаданные категории остаются в дефолтах).
 const METHODOLOGY_CONFIG = Object.assign(
-  { enabled: methodEnabledByDefault() },
+  { enabled: methodEnabledByDefault(), prompts: {} },
   (config.methodology && typeof config.methodology === 'object') ? config.methodology : {}
 );
 

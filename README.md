@@ -34,6 +34,7 @@ never see "rate limit", and you never pay.
 | 🛡️ **Reliability** | Circuit breaker, request queue, auto-disable of dead providers, watchdog. |
 | 📊 **Dashboard** | Status, speed, limits, history, tokens, RPM chart. |
 | 💾 **Disk cache** | Repeat prompts don't consume limits at all. |
+| 🎓 **Methodologist** | Agent answers like an engineer: plan→test→code (coding), stepwise (reasoning). Prompts customizable in `config.json`. |
 | 🔌 **Compatible** | Any OpenAI client: opencode, Cursor, your scripts. |
 
 ## Quick start — 30 seconds
@@ -112,10 +113,30 @@ to watch for new releases. The model manager runs every 6 hours.
 3. If it fails — instantly tries the next one in the chain.
 4. The response returns in the same format — the client never notices.
 
+### Methodologist (Productive Agent Layer)
+
+Freegate classifies the task (coding / reasoning / search / chat) and injects a
+short system-prompt methodologist **without any client-side changes**. Any
+OpenAI-compatible client (opencode, Cursor, chat) gets engineer-grade answers:
+
+- **coding** — brief plan before code, a suggested test, where to verify.
+- **reasoning** — reason stepwise, show assumptions.
+- **search** — short factual answer, don't invent sources.
+- **chat** — to the point, concise.
+
+The task category also nudges routing toward matching provider categories
+(`coding`→coding models, `reasoning`→reasoning models) without dropping fallback.
+Category distribution is visible on the dashboard and via
+`node tools/context-diag.js`.
+
+> Methodologist prompts are a condensed derived text inspired by
+> [superpowers](https://github.com/obra/superpowers) (MIT). Full agentic cycle
+> (tools, subagents) runs on the client side.
+
 ## Development
 
 ```bash
-npm test          # unit tests (17)
+npm test          # unit tests (187)
 node server.js    # run from source
 ```
 

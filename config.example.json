@@ -3,7 +3,13 @@
   "port": 4000,
   "auth": "your-secret-key-here",
   "rateLimit": { "maxRequests": 100, "windowMs": 60000 },
-  "methodology": { "enabled": true },
+  "methodology": {
+    "enabled": true,
+    "prompts": {
+      "coding": "Перед кодом — краткий план. Следи, чтобы тест описывал поведение.",
+      "reasoning": "Рассуждай пошагово, показывай допущения, затем вывод."
+    }
+  },
   "providers": {
     "or-nemotron-550b": {
       "endpoint": "https://openrouter.ai/api/v1/chat/completions",
