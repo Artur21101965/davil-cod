@@ -444,6 +444,7 @@ async function handleChatCompletion(req, res, body) {
   const requestTokens = estimateTokens(body.messages);
   const MIN_WINDOW = 50000; // below this we don't filter (typical requests)
   let windowPool = healthyProviders;
+  let upgradeNoCapable = false; // апгрейд, но ни один здоровый провайдер не держит запрос
   if (requestTokens > MIN_WINDOW || windowUpgraded) {
     const capable = healthyProviders.filter(([_, p]) => {
       const win = p.context_window || 0;
@@ -453,9 +454,10 @@ async function handleChatCompletion(req, res, body) {
     if (capable.length > 0) {
       windowPool = capable;
     } else if (windowUpgraded) {
-      // Ни один здоровый провайдер не держит запрос — best-effort на самый
-      // большой window (target исключён; OVERFLOW поймает телеметрия).
-      windowPool = [...healthyProviders].sort((a, b) => (b[1].context_window || 0) - (a[1].context_window || 0));
+      // Best-effort: запрос больше окна любого провайдера (minimax 1M не держит).
+      // Всё равно переполним — выберем самое большое окно ниже, минимизируя
+      // потери контекста; target исключён; OVERFLOW поймает телеметрия.
+      upgradeNoCapable = true;
     }
   }
 
@@ -471,32 +473,41 @@ async function handleChatCompletion(req, res, body) {
 
   let selected = [];
   if (pool.length > 0) {
-    const scored = pool.map(([key, provider]) => {
-      const h = getHealth()[key];
-      let score = h.score || 50;
-      const rawLat = h.latency || 0;
-      const lat = rawLat > 0 ? Math.max(rawLat, 100) : 500;
-      let weight = score / lat;
-      if (h.status === 'ratelimited') weight *= 0.05;
-      if (key === targetProviderKey) weight *= 1.15;
-      const dailyLimit = provider.dailyLimit || 1000;
-      const usedToday = getStats().providerUsage[key] || 0;
-      if (usedToday >= dailyLimit * 0.9) weight *= 0.5;
-      return { key, provider, weight };
-    });
+    if (upgradeNoCapable) {
+      // Bandit здесь бессилен: все провайдеры в пуле переполнят окно (запрос
+      // больше самого большого). Берём самое большое окно — наименьшие потери.
+      selected = pool
+        .map(([k, p]) => ({ key: k, provider: p }))
+        .sort((a, b) => (b.provider.context_window || 0) - (a.provider.context_window || 0))
+        .slice(0, 1);
+    } else {
+      const scored = pool.map(([key, provider]) => {
+        const h = getHealth()[key];
+        let score = h.score || 50;
+        const rawLat = h.latency || 0;
+        const lat = rawLat > 0 ? Math.max(rawLat, 100) : 500;
+        let weight = score / lat;
+        if (h.status === 'ratelimited') weight *= 0.05;
+        if (key === targetProviderKey) weight *= 1.15;
+        const dailyLimit = provider.dailyLimit || 1000;
+        const usedToday = getStats().providerUsage[key] || 0;
+        if (usedToday >= dailyLimit * 0.9) weight *= 0.5;
+        return { key, provider, weight };
+      });
 
-    // Bandit weight contract: bandit's pick() multiplies the Beta sample by
-    // `weight`, so safety-штрафы (ratelimited ×0.05, target ×1.15) действуют и
-    // при холодном старте. score/latency держит вес ~0.01-1.0; приоры bandit'а
-    // (a,b ~1+) со временем начинают доминировать. Не добавляй нормализацию
-    // здесь, пока измеренные веса не превысят ~5.
-    // Thompson sampling: рисуем сэмпл Beta(a+1, b+1) для каждого, умножаем на
-    // weight, выбираем максимум. Приоры из бакета сложности (bandit обучается).
-    const priors = getBandit()[complexityBucket] || {};
-    const bestKey = banditPick(scored, priors);
-    const bestProvider = scored.find((p) => p.key === bestKey);
-    if (bestProvider) selected = [bestProvider];
-    else if (scored.length > 0) selected = [scored[0]];
+      // Bandit weight contract: bandit's pick() multiplies the Beta sample by
+      // `weight`, so safety-штрафы (ratelimited ×0.05, target ×1.15) действуют и
+      // при холодном старте. score/latency держит вес ~0.01-1.0; приоры bandit'а
+      // (a,b ~1+) со временем начинают доминировать. Не добавляй нормализацию
+      // здесь, пока измеренные веса не превысят ~5.
+      // Thompson sampling: рисуем сэмпл Beta(a+1, b+1) для каждого, умножаем на
+      // weight, выбираем максимум. Приоры из бакета сложности (bandit обучается).
+      const priors = getBandit()[complexityBucket] || {};
+      const bestKey = banditPick(scored, priors);
+      const bestProvider = scored.find((p) => p.key === bestKey);
+      if (bestProvider) selected = [bestProvider];
+      else if (scored.length > 0) selected = [scored[0]];
+    }
   }
 
   // Weighted-random picked ONE provider as the primary; append the rest of the
