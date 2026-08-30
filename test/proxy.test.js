@@ -252,6 +252,22 @@ test('CLI: init (non-interactive) creates config and env without overwriting', (
   fs.rmSync(tmp, { recursive: true, force: true });
 });
 
+test('CLI: init wizard имеет режимы quick/full + подсказку Cursor', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'bin', 'freegate.js'), 'utf8');
+  assert.ok(/initWizard\(\)/.test(src), 'wizard существует');
+  // Режим quick (1 ключ OpenRouter) — объяснение
+  assert.ok(/минимум|Минимум: 1 ключ OpenRouter/i.test(src), 'объяснение quick');
+  assert.ok(/quick|Режим \[q\]uick/i.test(src), 'выбор режима quick');
+  assert.ok(/full|\[f\]ull/i.test(src), 'выбор режима full');
+  // В quick просим только OpenRouter, остальные пропускаем
+  assert.ok(/!full\s*&&\s*envVar\s*!==\s*EASY_START_PROVIDER/.test(src), 'quick пропускает не-OpenRouter');
+  assert.ok(/EASY_START_PROVIDER\s*=\s*'PROVIDER_OPENROUTER_APIKEY'/.test(src), 'EASY_START_PROVIDER задан');
+  // Подсказка подключения к Cursor
+  assert.ok(/Cursor/i.test(src), 'подсказка про Cursor');
+});
+
 test('pool: limits concurrency and queues overflow', async () => {
   const { acquire, stats } = require('../lib/pool');
   const key = 'pooltest-' + Date.now();

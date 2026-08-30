@@ -31,14 +31,26 @@ function makeReader() {
   };
 }
 
+// Виртуальный провайдер категорий моделей. Вся полезная инфа для онбординга.
+const EASY_START_PROVIDER = 'PROVIDER_OPENROUTER_APIKEY';
+const EASY_START_NAME = 'OpenRouter';
+
 async function initWizard() {
   const ask = makeReader();
+
+  // 0. Объяснение + выбор режима (quick / full).
+  console.log('\n=== Freegate — настройка ===');
+  console.log('Почему Freegate бесплатный? Он маршрутизирует запросы между бесплатными моделями.');
+  console.log('  • Минимум: 1 ключ OpenRouter → сразу 15+ бесплатных моделей (быстрый старт).');
+  console.log('  • Максимум: ключи всех провайдеров → 8 источников, максимум скорости и надёжности.\n');
+  const mode = (await ask('Режим [q]uick (1 ключ OpenRouter) или [f]ull (все ключи)? (q/f): ')).trim().toLowerCase();
+  const full = mode === 'f' || mode === 'full';
 
   // 1. Auth key for the proxy
   const auth = await ask('Пароль для доступа к прокси (Enter = сгенерировать): ');
   const authKey = auth.trim() || 'dc_' + Math.random().toString(36).slice(2, 14);
 
-  // 2. Collect provider keys from the catalog (unique env vars)
+  // 2. Collect provider keys from the catalog (unique env vars).
   const envVars = new Map(); // envVar -> [providerNames]
   for (const [name, p] of Object.entries(CATALOG)) {
     if (!p.envVar) continue;
@@ -50,7 +62,15 @@ async function initWizard() {
   for (const [envVar, providers] of envVars) {
     const sample = providers[0];
     const hint = CATALOG[sample].keyHint || '';
-    const answer = await ask(`\n${providers.join(', ')}\n  Ключ (${hint}) — пусто = пропустить: `);
+    // В quick-режиме OpenRouter просим обязательно-первым, остальные пропускаем.
+    if (!full && envVar !== EASY_START_PROVIDER) continue;
+    if (!full && envVar === EASY_START_PROVIDER) {
+      console.log(`\n👉 ${EASY_START_NAME} — самый большой источник бесплатных моделей.`);
+      console.log(`   Не хватает мощности? Позже добавь остальные ключи в дашборде (Настройки).`);
+    } else {
+      console.log(`\n${providers.join(', ')}`);
+    }
+    const answer = await ask(`  Ключ (${hint}) — пусто = пропустить: `);
     if (answer.trim()) keys[envVar] = answer.trim();
   }
 
@@ -73,8 +93,15 @@ async function initWizard() {
   console.log('✓ config.json создан');
 
   const filled = Object.values(keys).filter(Boolean).length;
-  console.log(`\nГотово! Провайдеров с ключами: ${filled} из ${envVars.size}`);
+  if (full) {
+    console.log(`\nГотово! Провайдеров с ключами: ${filled} из ${envVars.size} (полный режим)`);
+  } else {
+    const hasEasy = !!keys[EASY_START_PROVIDER];
+    console.log(`\nГотово! Режим quick: ${hasEasy ? 'OpenRouter добавлен' : 'ключей не введено'}.`);
+    console.log('  Провайдеров с ключами: ' + filled + '. Добавить больше ключей можно в дашборде → Настройки.');
+  }
   console.log(`Запуск: npx freegate start  (пароль: ${authKey})`);
+  console.log('Подключить к Cursor: Настройки Cursor → Models → OpenAI-compatible → http://localhost:4000/v1');
 }
 
 function copyExample(name, example) {
@@ -220,7 +247,7 @@ WantedBy=default.target
 } else {
   console.log('Freegate — бесплатный LLM-прокси с failover');
   console.log('Команды:');
-  console.log('  npx freegate init       интерактивная настройка (ключи, пароль)');
+  console.log('  npx freegate init       интерактивная настройка (quick/full режим, пароль)');
   console.log('  npx freegate start      запустить прокси');
   console.log('  npx freegate status     диагностика: провайдеры, лимиты, ошибки');
   console.log('  npx freegate test       проверить, что прокси работает');

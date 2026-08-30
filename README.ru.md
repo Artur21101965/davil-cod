@@ -40,10 +40,16 @@ DeepSeek и локальные модели. Если один провайде�
 ## Быстрый старт — 30 секунд
 
 ```bash
-npx freegate init -i     # мастер спросит: пароль + ключи каждого провайдера
+npx freegate init -i     # мастер: режим quick (1 ключ OpenRouter) или full (все ключи)
 npx freegate start       # прокси на http://localhost:4000
 npx freegate test        # проверить, что всё работает
 ```
+
+**Режимы init:**
+- **quick** — вставь один ключ OpenRouter → сразу 15+ бесплатных моделей. Остальные ключи добавишь позже в дашборде → «Настройки».
+- **full** — все ключи провайдеров → 8 источников, максимум скорости и надёжности (авто-failover).
+
+**Подключить к Cursor в 2 клика:** Cursor → Settings → Models → «OpenAI-compatible» → Base URL `http://localhost:4000/v1`, API Key = твой пароль.
 
 Дашборд: `http://localhost:4000/?key=твой_пароль`
 

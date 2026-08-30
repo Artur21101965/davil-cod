@@ -37,7 +37,7 @@
 - ~~Mojibake в русском ответе~~ **ИСПРАВЛЕНО 26.08**: `data += chunk` / `chunk.toString()` дробили multi-byte UTF-8 на '' (символ `р` резался по байтам). Теперь везде `StringDecoder('utf8')` (providers.js + server.js, streams/cache/retry).
 
 ## Тесты
-- 240 тестов: `node --test test/*.test.js` (proxy, clean, compactor, memory, memory-store, vision, dashboard, semcache, contextstats, taskclassify, methodology, modeldb, modelscan, modelmanager)
+- 241 тест: `node --test test/*.test.js` (proxy, clean, compactor, memory, memory-store, vision, dashboard, semcache, contextstats, taskclassify, methodology, modeldb, modelscan, modelmanager)
 - Перед публикацией: тесты + `node --check server.js lib/*.js`
 - `POST /v1/cache/clear` и `POST /v1/reload` требуют auth (Bearer); память чистится/сейвится автоматически
 
@@ -49,6 +49,13 @@
 - **content** — генерация шортс/постов (tier-s, через tools/)
 
 Запускаются параллельно через Task tool — каждый в изолированном контексте.
+
+## Онбординг (Итерация 2, 30.08)
+- `freegate init -i` — два режима: **quick** (1 ключ OpenRouter → 15+ free-моделей) / **full** (все ключи → 8 источников). Объяснение разницы + подсказка «добавь остальные ключи в дашборде → Настройки».
+- `freegate init` (неинтерактивный) — копирует config.example.json + .env.example без перезаписи (как раньше).
+- Вывод wizard'а: «Подключить к Cursor: ... http://localhost:4000/v1» — стартовый сниппет.
+- README.ru/README: quick-start с режимами + «Cursor в 2 клика».
+
 
 ## Публикация
 - npm: `npm version patch && npm publish` (ключ в ~/.npmrc, bypass 2FA)

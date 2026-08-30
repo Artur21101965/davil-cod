@@ -41,10 +41,16 @@ never see "rate limit", and you never pay.
 ## Quick start — 30 seconds
 
 ```bash
-npx freegate init -i     # wizard: password + each provider's key
+npx freegate init -i     # wizard: quick (1 OpenRouter key) or full (all keys)
 npx freegate start       # proxy on http://localhost:4000
 npx freegate test        # verify everything works
 ```
+
+**init modes:**
+- **quick** — one OpenRouter key → 15+ free models instantly. Add more keys later in Dashboard → Settings.
+- **full** — all provider keys → 8 sources, max speed and reliability (auto-failover).
+
+**Connect to Cursor in 2 clicks:** Cursor → Settings → Models → "OpenAI-compatible" → Base URL `http://localhost:4000/v1`, API Key = your password.
 
 Dashboard: `http://localhost:4000/?key=your_password`
 
