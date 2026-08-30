@@ -9,7 +9,7 @@ const { checkRateLimit } = require('./lib/rateLimit');
 const { handleDashboard } = require('./lib/dashboard');
 const { acquire, stats: poolStats } = require('./lib/pool');
 const { stripThink, cleanDelta, cleanMessage, fixReasoningMessage, isTooShort, MIN_ANSWER_LEN } = require('./lib/clean');
-const { classifyComplexity, maybeUpgradeTier, classifyVisionComplexity } = require('./lib/routing');
+const { classifyComplexity, maybeUpgradeTier, classifyVisionComplexity, needsWindowUpgrade } = require('./lib/routing');
 const { bucket, pick: banditPick, isTransientLimit } = require('./lib/bandit');
 const { StringDecoder } = require('string_decoder');
 const logger = require('./lib/logger');
@@ -213,7 +213,7 @@ async function handleChatCompletion(req, res, body) {
   let targetProviderKey = MODEL_MAP[effectiveModel] || MODEL_MAP[requestedModel] || 'zai';
   const isStreaming = body.stream === true;
   // --- Контекстная телеметрия: один measure на запрос, record только в терминальной точке. ---
-  const measure = { ts: Date.now(), provider: targetProviderKey, cacheType: 'miss', status: 0, win: PROVIDERS[targetProviderKey]?.context_window || 0 };
+  const measure = { ts: Date.now(), provider: targetProviderKey, cacheType: 'miss', status: 0, win: PROVIDERS[targetProviderKey]?.context_window || 0, upgraded: 0 };
   const commit = (status) => {
     measure.status = status;
     contextStats.record(measure);
@@ -319,10 +319,18 @@ async function handleChatCompletion(req, res, body) {
     }
   }
 
+  // Window-aware upgrade: если запрос не влезает в окно целевой модели (после
+  // vision-апгрейда target), компакция НЕ запускается — суммаризатор не должен
+  // сжимать контекст, который провайдер с большим окном возьмёт целиком.
+  const windowUpgraded = Array.isArray(body.messages) && body.messages.length > 0 &&
+    needsWindowUpgrade(PROVIDERS[targetProviderKey]?.context_window || 0, estimateTokens(body.messages));
+  if (windowUpgraded) measure.upgraded = 1;
+
   // Compact overly large conversations so free models don't reject on context.
   // Runs AFTER the vision pipeline (images already converted to text above).
+  // Skipped in window-upgrade mode — the big provider takes the raw context.
   if (Array.isArray(body.messages)) measure.origTokens = estimateTokens(body.messages);
-  if (Array.isArray(body.messages) && body.messages.length > 0) {
+  if (Array.isArray(body.messages) && body.messages.length > 0 && !windowUpgraded) {
     body.messages = await prepareMessages(body.messages, { contextWindow: PROVIDERS[targetProviderKey]?.context_window || 0 });
   }
   // Контекстная телеметрия: токены после компакции + доля системного промпта.
@@ -436,13 +444,19 @@ async function handleChatCompletion(req, res, body) {
   const requestTokens = estimateTokens(body.messages);
   const MIN_WINDOW = 50000; // below this we don't filter (typical requests)
   let windowPool = healthyProviders;
-  if (requestTokens > MIN_WINDOW) {
+  if (requestTokens > MIN_WINDOW || windowUpgraded) {
     const capable = healthyProviders.filter(([_, p]) => {
       const win = p.context_window || 0;
       // Unknown/0 window providers are kept (heuristic) — better to try than drop.
       return win === 0 || win >= requestTokens;
     });
-    if (capable.length > 0) windowPool = capable;
+    if (capable.length > 0) {
+      windowPool = capable;
+    } else if (windowUpgraded) {
+      // Ни один здоровый провайдер не держит запрос — best-effort на самый
+      // большой window (target исключён; OVERFLOW поймает телеметрия).
+      windowPool = [...healthyProviders].sort((a, b) => (b[1].context_window || 0) - (a[1].context_window || 0));
+    }
   }
 
   // Prefer providers below 90% of their daily limit; only fall back to
@@ -501,7 +515,8 @@ async function handleChatCompletion(req, res, body) {
   // tier-* requests with 400/422). Trying them before the target produced huge
   // serial fallback chains (10+ sequential HTTP calls per request), which looked
   // like the "model thinking forever". Correct mapping beats weighted guessing.
-  if (MODEL_MAP[requestedModel] && PROVIDERS[targetProviderKey]) {
+  // Skipped in window-upgrade mode: the target doesn't fit the request anyway.
+  if (!windowUpgraded && MODEL_MAP[requestedModel] && PROVIDERS[targetProviderKey]) {
     enabledProviders = [
       [targetProviderKey, PROVIDERS[targetProviderKey]],
       ...enabledProviders.filter(([k]) => k !== targetProviderKey),

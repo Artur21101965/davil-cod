@@ -335,3 +335,15 @@ test('cache: hits/misses persist across restarts', () => {
   assert.ok(stats.hits >= 1, 'hits restored after restart');
   try { fs.unlinkSync(path.join(__dirname, '..', 'cache.json')); } catch {}
 });
+
+test('server: window-aware upgrade wiring (structural)', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  assert.ok(src.includes('needsWindowUpgrade'), 'импорт хелпера из routing');
+  assert.ok(/windowUpgraded\s*=\s*Array\.isArray/.test(src), 'decision point перед компакцией');
+  assert.ok(src.includes('measure.upgraded = 1'), 'мера апгрейда ставится');
+  assert.ok(/&&\s*!\s*windowUpgraded\s*\)\s*\{[\s\S]*prepareMessages/.test(src), 'prepareMessages пропускается при апгрейде');
+  assert.ok(src.includes('if (requestTokens > MIN_WINDOW || windowUpgraded)'), 'window-фильтр без гейта при апгрейде');
+  assert.ok(src.includes('!windowUpgraded && MODEL_MAP[requestedModel]'), 'target-first пропускается при апгрейде');
+});
