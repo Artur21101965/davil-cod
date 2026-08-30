@@ -5,7 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-let ModelManager, ModelDB;
+let ModelManager, ModelDB, isAutoAddable;
 
 function tmpDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'modelmanager-test-'));
@@ -39,7 +39,7 @@ describe('ModelManager', () => {
 
   beforeEach(() => {
     delete require.cache[require.resolve('../lib/modelmanager')];
-    ({ ModelManager } = require('../lib/modelmanager'));
+    ({ ModelManager, isAutoAddable } = require('../lib/modelmanager'));
     ({ ModelDB } = require('../lib/modeldb'));
     dir = tmpDir();
     dbPath = path.join(dir, 'models-db.json');
@@ -249,5 +249,34 @@ describe('ModelManager', () => {
     const mgr2 = makeManager({ fetchImpl: scanFetch, reloadCalls });
     await mgr2.runCycle();
     assert.equal(reloadCalls.length, 1, 'добавление → reload');
+  });
+});
+
+describe('isAutoAddable', () => {
+  beforeEach(() => {
+    delete require.cache[require.resolve('../lib/modelmanager')];
+    ({ isAutoAddable } = require('../lib/modelmanager'));
+  });
+
+  it('accepts :free models always', () => {
+    assert.equal(isAutoAddable({ model: 'vendor/foo:free', source: 'openrouter' }), true);
+    assert.equal(isAutoAddable({ model: 'minimax/minimax-m3:free', source: 'openrouter' }), true);
+  });
+
+  it('accepts known free families from native sources', () => {
+    assert.equal(isAutoAddable({ model: 'qwen/qwen3.8-27b', source: 'groq' }), true);
+    assert.equal(isAutoAddable({ model: 'google/gemma-4-31b-it', source: 'cerebras' }), true);
+    assert.equal(isAutoAddable({ model: 'nvidia/nemotron-3-super-120b-a12b', source: 'nim' }), true);
+  });
+
+  it('rejects paid models (deepseek-v4-pro, glm paid)', () => {
+    assert.equal(isAutoAddable({ model: 'deepseek-v4-pro', source: 'deepseek' }), false, 'deepseek-v4-pro платная');
+    assert.equal(isAutoAddable({ model: 'zai-org/GLM-5.2', source: 'huggingface' }), false, 'GLM-5.2 платная (не family)');
+    assert.equal(isAutoAddable({ model: 'mistral-medium', source: 'huggingface' }), false, 'mistral-medium платная');
+  });
+
+  it('rejects unknown/opaque models from low-limit sources', () => {
+    assert.equal(isAutoAddable({ model: 'something/opaque-model', source: 'huggingface' }), false);
+    assert.equal(isAutoAddable({ model: 'weird/unknown-xl', source: 'nim' }), false);
   });
 });

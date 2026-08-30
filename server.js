@@ -608,11 +608,22 @@ async function handleChatCompletion(req, res, body) {
   // serial fallback chains (10+ sequential HTTP calls per request), which looked
   // like the "model thinking forever". Correct mapping beats weighted guessing.
   // Skipped in window-upgrade mode: the target doesn't fit the request anyway.
+  // If the target is rate-limited or near/over its daily limit, DON'T put it
+  // first — otherwise every request burns a doomed 429 attempt on it and the
+  // pool collapses into a rate-limit spiral. Skip straight to the healthy pool.
   if (!windowUpgraded && MODEL_MAP[requestedModel] && PROVIDERS[targetProviderKey]) {
-    enabledProviders = [
-      [targetProviderKey, PROVIDERS[targetProviderKey]],
-      ...enabledProviders.filter(([k]) => k !== targetProviderKey),
-    ];
+    const tHealth = getHealth()[targetProviderKey];
+    const tLimit = (getStats().dailyUsage?.[targetProviderKey]?.[today]) || 0;
+    const tCap = PROVIDERS[targetProviderKey].dailyLimit || 0;
+    const targetBurned = tHealth?.status === 'ratelimited' || (tCap > 0 && tLimit >= tCap * 0.9);
+    if (!targetBurned) {
+      enabledProviders = [
+        [targetProviderKey, PROVIDERS[targetProviderKey]],
+        ...enabledProviders.filter(([k]) => k !== targetProviderKey),
+      ];
+    } else {
+      logger.info('Target-first skip', { key: targetProviderKey, status: tHealth?.status, used: tLimit, cap: tCap });
+    }
   }
 
   if (enabledProviders.length === 0) {

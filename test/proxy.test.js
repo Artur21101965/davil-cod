@@ -417,3 +417,14 @@ test('server: window-aware upgrade wiring (structural)', () => {
   assert.ok(src.includes('!windowUpgraded && MODEL_MAP[requestedModel]'), 'target-first пропускается при апгрейде');
   assert.ok(/measure\.est\s*=\s*measure\.sentTokens/.test(src), 'sumEst питается оценкой отправленных токенов');
 });
+
+test('server: target-first пропускается при выгоревшем лимите (анти-спираль 429)', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  assert.ok(src.includes('Target-first skip'), 'логирует skip target');
+  assert.ok(src.includes('targetBurned'), 'условие выгоревшего target');
+  assert.ok(/targetBurned\s*=\s*tHealth\?\.status\s*===\s*'ratelimited'/.test(src), 'проверяет ratelimited');
+  assert.ok(/tCap\s*>\s*0\s*&&\s*tLimit\s*>=\s*tCap\s*\*\s*0\.9/.test(src), 'проверяет лимит >=90%');
+  assert.ok(/if \(!targetBurned\)\s*\{/.test(src), 'target-first только если не выгорел');
+});
