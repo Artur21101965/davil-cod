@@ -358,6 +358,33 @@ test('dashboard: redesigned frame (KPI + tabs + sortable tables)', () => {
   assert.ok(html.includes('loadSetup'), 'setup-логика сохранена');
 });
 
+test('dashboard: модели — тумблер вкл/выкл + тест из UI (i18n)', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'lib', 'dashboard.js'), 'utf8');
+  // Тумблер в таблице моделей + вызов endpoint
+  assert.ok(html.includes("function toggleModel"), 'тумблер toggleModel');
+  assert.ok(html.includes('/v1/models/'), 'endpoint toggle/test');
+  assert.ok(html.includes('toggleModel('), 'toggleModel вызывается');
+  // Тест модели из UI
+  assert.ok(html.includes('testModelLive') || html.includes('probeModel'), 'тест модели из UI');
+  // Рекомендации
+  assert.ok(html.includes('renderModelRecommend') || html.includes('modelRecommend'), 'рекомендации моделей');
+  // Двухязычность: словарь + переключатель
+  assert.ok(html.includes('I18N'), 'словарь I18N');
+  assert.ok(html.includes('setLang'), 'переключатель языка setLang');
+  assert.ok(html.includes('t('), 'функция t()');
+  assert.ok(html.includes("'en'") || html.includes('"en"'), 'есть английские строки');
+});
+
+test('server: /v1/models/{key}/toggle и /test зарегистрированы', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
+  assert.ok(/\/v1\/models\//.test(src), 'роут /v1/models/ есть');
+  assert.ok(/toggleModel\s*\(|\/toggle\b/.test(src), 'обработчик toggle в server');
+  assert.ok(/\/test\b|probeModel\s*\(/.test(src), 'обработчик test в server');
+  assert.ok(/reloadProviders\s*\(\s*\)/.test(src), 'toggle перезагружает провайдеров');
+});
+
 // Stop background timers so the test process can exit (health.js sets setInterval)
 require('../lib/health')._stopTimers();
 require('../lib/cache')._stopTimers();

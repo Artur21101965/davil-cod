@@ -1141,6 +1141,81 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Парсим /v1/models/{key}/toggle и /v1/models/{key}/test
+  const modelActionMatch = parsedUrl.pathname.match(/^\/v1\/models\/([^/]+)\/(toggle|test)$/);
+  if (modelActionMatch && req.method === 'POST') {
+    if (AUTH_KEY) {
+      const apiKey = (req.headers.authorization || '').replace('Bearer ', '').trim();
+      const keyFromQuery = parsedUrl.searchParams.get('key');
+      if (apiKey !== AUTH_KEY && keyFromQuery !== AUTH_KEY) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'Invalid API key' } }));
+        return;
+      }
+    }
+    const modelKey = decodeURIComponent(modelActionMatch[1]);
+    const action = modelActionMatch[2];
+
+    if (action === 'test') {
+      // Живой "hi"-тест: работает ли модель с нашим ключом. Без изменения каталога.
+      const dbEntry = modelManager.db.get(modelKey);
+      const prov = PROVIDERS[modelKey];
+      const endpoint = (dbEntry && dbEntry.endpoint) || (prov && prov.endpoint);
+      const model = (dbEntry && dbEntry.model) || (prov && prov.model);
+      if (!endpoint || !model) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'Модель ' + modelKey + ' не найдена' }));
+        return;
+      }
+      const source = (dbEntry && dbEntry.source) || 'unknown';
+      const apiKey = modelManager.apiKeyFor(source);
+      try {
+        const t0 = Date.now();
+        const r = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(apiKey ? { Authorization: 'Bearer ' + apiKey } : {}) },
+          body: JSON.stringify({ model, messages: [{ role: 'user', content: 'hi' }], max_tokens: 5 }),
+          signal: AbortSignal.timeout(20000),
+        });
+        const latencyMs = Date.now() - t0;
+        // Обновляем базу результатом проверки (но не «активируем» принудительно).
+        modelManager.db.markChecked(modelKey, { ok: r.ok, status: r.status, latencyMs }, { now: Date.now() });
+        modelManager.db.save();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: r.ok, status: r.status, latencyMs, model: { key: modelKey, status: modelManager.db.get(modelKey).status } }));
+      } catch (err) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, status: 0, error: err.message }));
+      }
+      return;
+    }
+
+    // action === 'toggle': вкл/выкл провайдера в config.json (только этот ключ) + hot-reload.
+    try {
+      const userCfg = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+      if (!userCfg.providers) userCfg.providers = {};
+      if (!userCfg.providers[modelKey]) userCfg.providers[modelKey] = {};
+      // Flip: было включено → выключить, было выключено → включить.
+      const currentlyEnabled = !(userCfg.providers[modelKey].enabled === false);
+      const newEnabled = !currentlyEnabled;
+      userCfg.providers[modelKey].enabled = newEnabled;
+      fs.writeFileSync(CONFIG_PATH, JSON.stringify(userCfg, null, 2));
+      reloadProviders();
+      // Статус в базе: включили → untested (проверится в след. цикле), выключили → user-disabled.
+      const entry = modelManager.db.get(modelKey);
+      if (entry) {
+        modelManager.db.setStatus(modelKey, newEnabled ? 'untested' : 'user-disabled');
+        modelManager.db.save();
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, key: modelKey, enabled: newEnabled, model: entry ? { key: modelKey, status: modelManager.db.get(modelKey).status } : null }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Toggle failed: ' + err.message } }));
+    }
+    return;
+  }
+
   if (parsedUrl.pathname === '/health') {
     const h = getHealth();
     const upCount = Object.values(h).filter(v => v.status === 'up').length;
