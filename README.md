@@ -29,7 +29,7 @@ is only yours — nobody else can connect to it, and you can't to theirs. Provid
 keys live in your local `.env`, history in local files. **No third-party server
 sees your keys or conversations.**
 
-![Freegate Dashboard](assets/dashboard.png)
+![Freegate Dashboard](assets/dashboard.gif)
 
 ## Features
 
