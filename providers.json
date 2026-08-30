@@ -285,7 +285,7 @@
     "keyHint": "openrouter.ai → Keys (автодобавлено, vision)",
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
     "free": true,
-    "category": "vision",
+    "category": "general",
     "context_window": 1048576
   },
   "or-minimax-m2-7-free": {

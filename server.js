@@ -571,6 +571,10 @@ async function handleChatCompletion(req, res, body) {
         if (taskCategory === 'coding' && cat === 'coding') weight *= 1.5;
         else if (taskCategory === 'reasoning' && cat === 'reasoning') weight *= 1.5;
         else if ((taskCategory === 'chat' || taskCategory === 'search') && cat === 'general') weight *= 1.2;
+        // Простой факт/поиск не должен «думать вслух» на reasoning-модели:
+        // это дорого по лимитам и даёт размышления вместо краткого ответа.
+        if ((taskCategory === 'chat' || taskCategory === 'search') && cat === 'reasoning') weight *= 0.15;
+        else if ((taskCategory === 'chat' || taskCategory === 'search') && cat === 'vision') weight *= 0.3;
         const dailyLimit = provider.dailyLimit || 1000;
         const usedToday = getStats().providerUsage[key] || 0;
         if (usedToday >= dailyLimit * 0.9) weight *= 0.5;

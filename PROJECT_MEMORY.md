@@ -35,9 +35,11 @@
 - **Nemotron-120b/550b** отвечают думанием вслух — отключены в активном конфиге.
 - **Локальные модели (Ollama)** — на слабом Mac не использовать (9GB RAM).
 - ~~Mojibake в русском ответе~~ **ИСПРАВЛЕНО 26.08**: `data += chunk` / `chunk.toString()` дробили multi-byte UTF-8 на '' (символ `р` резался по байтам). Теперь везде `StringDecoder('utf8')` (providers.js + server.js, streams/cache/retry).
+- **Категория minimax-m3**: `or-minimax-m3-free` была `vision` (ложная классификация из старого автопоиска, 'multimodal' в описании OpenRouter) — исправлено на `general`. Иначе методолог/роутинг штрафовали основную рабочую лошадку tier-splus/tier-l/Best.
+- **Простая задача ≠ reasoning-модель** (30.08): при `taskCategory`=chat/search weighted-selection штрафует reasoning ×0.15 и vision ×0.3 — простой факт/поиск идёт на быстрые general, а не «думает вслух» на дорогих reasoning-моделях. E2E: «столица Франции» на tier-s → «Париж» за 0.46с.
 
 ## Тесты
-- 250 тестов: `node --test test/*.test.js` (proxy, clean, compactor, memory, memory-store, vision, dashboard, semcache, contextstats, taskclassify, methodology, modeldb, modelscan, modelmanager)
+- 251 тест: `node --test test/*.test.js` (proxy, clean, compactor, memory, memory-store, vision, dashboard, semcache, contextstats, taskclassify, methodology, modeldb, modelscan, modelmanager)
 - Перед публикацией: тесты + `node --check server.js lib/*.js`
 - `POST /v1/cache/clear` и `POST /v1/reload` требуют auth (Bearer); память чистится/сейвится автоматически
 

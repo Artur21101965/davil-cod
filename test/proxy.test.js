@@ -453,6 +453,14 @@ test('server: /v1/stats отдаёт экономию (savings) против п�
   assert.ok(/"savings"/.test(src) || /savings:/.test(src), 'поле savings в ответе /v1/stats');
 });
 
+test('server: простые задачи (chat/search) штрафуют reasoning-модели', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  assert.ok(/chat'\s*\|\|\s*taskCategory\s*===\s*'search'/.test(src), 'проверяет chat/search');
+  assert.ok(/cat\s*===\s*'reasoning'\)\s*weight\s*\*=\s*0\.15/.test(src), 'штраф reasoning ×0.15 для простых задач');
+});
+
 test('dashboard: карточка экономии + сохранение _savings', () => {
   const fs = require('fs');
   const path = require('path');
