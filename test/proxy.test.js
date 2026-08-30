@@ -329,6 +329,35 @@ test('dashboard: renders context block', () => {
   assert.ok(html.includes('sum.tasks') && html.includes('taskTotal'), 'renderContext читает категории задач');
 });
 
+test('dashboard: redesigned frame (KPI + tabs + sortable tables)', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'lib', 'dashboard.js'), 'utf8');
+  // KPI-полоска
+  assert.ok(html.includes('renderKpi'), 'renderKpi существует');
+  assert.ok(html.includes('id="kpiBar"'), 'sticky KPI-полоска есть');
+  // Табы: 5 разделов
+  assert.ok(html.includes("showTab('overview')"), 'таб Обзор');
+  assert.ok(html.includes("showTab('providers')"), 'таб Провайдеры');
+  assert.ok(html.includes("showTab('models')"), 'таб Модели');
+  assert.ok(html.includes("showTab('context')"), 'таб Контекст');
+  assert.ok(html.includes("showTab('setup')"), 'таб Настройки');
+  // Провайдеры: таблица с фильтрами/поиском/сортировкой
+  assert.ok(html.includes('renderProvidersTable'), 'таблица провайдеров');
+  assert.ok(html.includes('providerSearch'), 'поиск провайдеров');
+  assert.ok(html.includes('setProviderFilter'), 'фильтры-чипсы провайдеров');
+  assert.ok(html.includes('sortProvidersBy'), 'сортировка провайдеров');
+  // Модели: таблица с фильтрами
+  assert.ok(html.includes('renderModelsTable'), 'таблица моделей');
+  assert.ok(html.includes('/v1/models-db'), 'fetch базы моделей');
+  assert.ok(html.includes('modelSearch'), 'поиск моделей');
+  // Обзор: алерты
+  assert.ok(html.includes('renderAlerts'), 'блок алертов');
+  // Setup-панель сохранена
+  assert.ok(html.includes('setup-panel') || html.includes('panel-setup'), 'setup-панель есть');
+  assert.ok(html.includes('loadSetup'), 'setup-логика сохранена');
+});
+
 // Stop background timers so the test process can exit (health.js sets setInterval)
 require('../lib/health')._stopTimers();
 require('../lib/cache')._stopTimers();
