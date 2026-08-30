@@ -453,5 +453,405 @@
     "envVar": "PROVIDER_OPENROUTER_APIKEY",
     "free": true,
     "category": "general"
+  },
+  "mistral-mistral-medium-2505": {
+    "endpoint": "https://api.mistral.ai/v1/chat/completions",
+    "model": "mistral-medium-2505",
+    "priority": 22,
+    "dailyLimit": 500,
+    "keyHint": "mistral → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_MISTRAL_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "groq-qwen3-8-27b": {
+    "endpoint": "https://api.groq.com/openai/v1/chat/completions",
+    "model": "qwen/qwen3.8-27b",
+    "priority": 6,
+    "dailyLimit": 1000,
+    "keyHint": "groq → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_GROQ_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "groq-compound-mini": {
+    "endpoint": "https://api.groq.com/openai/v1/chat/completions",
+    "model": "groq/compound-mini",
+    "priority": 1,
+    "dailyLimit": 1000,
+    "keyHint": "groq → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_GROQ_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "mistral-codestral-2508": {
+    "endpoint": "https://api.mistral.ai/v1/chat/completions",
+    "model": "codestral-2508",
+    "priority": 5,
+    "dailyLimit": 500,
+    "keyHint": "mistral → Keys (автодобавлено, coding)",
+    "envVar": "PROVIDER_MISTRAL_APIKEY",
+    "free": true,
+    "category": "coding"
+  },
+  "mistral-mistral-code-latest": {
+    "endpoint": "https://api.mistral.ai/v1/chat/completions",
+    "model": "mistral-code-latest",
+    "priority": 1,
+    "dailyLimit": 500,
+    "keyHint": "mistral → Keys (автодобавлено, coding)",
+    "envVar": "PROVIDER_MISTRAL_APIKEY",
+    "free": true,
+    "category": "coding"
+  },
+  "mistral-mistral-code-fim-latest": {
+    "endpoint": "https://api.mistral.ai/v1/chat/completions",
+    "model": "mistral-code-fim-latest",
+    "priority": 2,
+    "dailyLimit": 500,
+    "keyHint": "mistral → Keys (автодобавлено, coding)",
+    "envVar": "PROVIDER_MISTRAL_APIKEY",
+    "free": true,
+    "category": "coding"
+  },
+  "mistral-devstral-medium-latest": {
+    "endpoint": "https://api.mistral.ai/v1/chat/completions",
+    "model": "devstral-medium-latest",
+    "priority": 6,
+    "dailyLimit": 500,
+    "keyHint": "mistral → Keys (автодобавлено, coding)",
+    "envVar": "PROVIDER_MISTRAL_APIKEY",
+    "free": true,
+    "category": "coding"
+  },
+  "mistral-devstral-latest": {
+    "endpoint": "https://api.mistral.ai/v1/chat/completions",
+    "model": "devstral-latest",
+    "priority": 3,
+    "dailyLimit": 500,
+    "keyHint": "mistral → Keys (автодобавлено, coding)",
+    "envVar": "PROVIDER_MISTRAL_APIKEY",
+    "free": true,
+    "category": "coding"
+  },
+  "mistral-mistral-code-agent-latest": {
+    "endpoint": "https://api.mistral.ai/v1/chat/completions",
+    "model": "mistral-code-agent-latest",
+    "priority": 4,
+    "dailyLimit": 500,
+    "keyHint": "mistral → Keys (автодобавлено, coding)",
+    "envVar": "PROVIDER_MISTRAL_APIKEY",
+    "free": true,
+    "category": "coding"
+  },
+  "mistral-mistral-medium-2508": {
+    "endpoint": "https://api.mistral.ai/v1/chat/completions",
+    "model": "mistral-medium-2508",
+    "priority": 38,
+    "dailyLimit": 500,
+    "keyHint": "mistral → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_MISTRAL_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "mistral-mistral-small-2603": {
+    "endpoint": "https://api.mistral.ai/v1/chat/completions",
+    "model": "mistral-small-2603",
+    "priority": 7,
+    "dailyLimit": 500,
+    "keyHint": "mistral → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_MISTRAL_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "mistral-voxtral-small-2507": {
+    "endpoint": "https://api.mistral.ai/v1/chat/completions",
+    "model": "voxtral-small-2507",
+    "priority": 8,
+    "dailyLimit": 500,
+    "keyHint": "mistral → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_MISTRAL_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "mistral-mistral-vibe-cli-fast": {
+    "endpoint": "https://api.mistral.ai/v1/chat/completions",
+    "model": "mistral-vibe-cli-fast",
+    "priority": 9,
+    "dailyLimit": 500,
+    "keyHint": "mistral → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_MISTRAL_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "mistral-voxtral-small-latest": {
+    "endpoint": "https://api.mistral.ai/v1/chat/completions",
+    "model": "voxtral-small-latest",
+    "priority": 10,
+    "dailyLimit": 500,
+    "keyHint": "mistral → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_MISTRAL_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "mistral-magistral-small-latest": {
+    "endpoint": "https://api.mistral.ai/v1/chat/completions",
+    "model": "magistral-small-latest",
+    "priority": 23,
+    "dailyLimit": 500,
+    "keyHint": "mistral → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_MISTRAL_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "mistral-ministral-3b-2512": {
+    "endpoint": "https://api.mistral.ai/v1/chat/completions",
+    "model": "ministral-3b-2512",
+    "priority": 2,
+    "dailyLimit": 500,
+    "keyHint": "mistral → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_MISTRAL_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "mistral-ministral-3b-latest": {
+    "endpoint": "https://api.mistral.ai/v1/chat/completions",
+    "model": "ministral-3b-latest",
+    "priority": 11,
+    "dailyLimit": 500,
+    "keyHint": "mistral → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_MISTRAL_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "mistral-ministral-8b-latest": {
+    "endpoint": "https://api.mistral.ai/v1/chat/completions",
+    "model": "ministral-8b-latest",
+    "priority": 3,
+    "dailyLimit": 500,
+    "keyHint": "mistral → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_MISTRAL_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "mistral-ministral-8b-2512": {
+    "endpoint": "https://api.mistral.ai/v1/chat/completions",
+    "model": "ministral-8b-2512",
+    "priority": 12,
+    "dailyLimit": 500,
+    "keyHint": "mistral → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_MISTRAL_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "mistral-ministral-14b-2512": {
+    "endpoint": "https://api.mistral.ai/v1/chat/completions",
+    "model": "ministral-14b-2512",
+    "priority": 13,
+    "dailyLimit": 500,
+    "keyHint": "mistral → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_MISTRAL_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "mistral-mistral-medium-latest": {
+    "endpoint": "https://api.mistral.ai/v1/chat/completions",
+    "model": "mistral-medium-latest",
+    "priority": 4,
+    "dailyLimit": 500,
+    "keyHint": "mistral → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_MISTRAL_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "mistral-mistral-medium": {
+    "endpoint": "https://api.mistral.ai/v1/chat/completions",
+    "model": "mistral-medium",
+    "priority": 14,
+    "dailyLimit": 500,
+    "keyHint": "mistral → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_MISTRAL_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "mistral-mistral-medium-3-5": {
+    "endpoint": "https://api.mistral.ai/v1/chat/completions",
+    "model": "mistral-medium-3-5",
+    "priority": 99,
+    "dailyLimit": 500,
+    "keyHint": "mistral → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_MISTRAL_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "mistral-ministral-14b-latest": {
+    "endpoint": "https://api.mistral.ai/v1/chat/completions",
+    "model": "ministral-14b-latest",
+    "priority": 30,
+    "dailyLimit": 500,
+    "keyHint": "mistral → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_MISTRAL_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "mistral-mistral-medium-3": {
+    "endpoint": "https://api.mistral.ai/v1/chat/completions",
+    "model": "mistral-medium-3",
+    "priority": 15,
+    "dailyLimit": 500,
+    "keyHint": "mistral → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_MISTRAL_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "mistral-mistral-vibe-cli-latest": {
+    "endpoint": "https://api.mistral.ai/v1/chat/completions",
+    "model": "mistral-vibe-cli-latest",
+    "priority": 16,
+    "dailyLimit": 500,
+    "keyHint": "mistral → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_MISTRAL_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "mistral-mistral-medium-2604": {
+    "endpoint": "https://api.mistral.ai/v1/chat/completions",
+    "model": "mistral-medium-2604",
+    "priority": 24,
+    "dailyLimit": 500,
+    "keyHint": "mistral → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_MISTRAL_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "mistral-mistral-vibe-cli-with-tools": {
+    "endpoint": "https://api.mistral.ai/v1/chat/completions",
+    "model": "mistral-vibe-cli-with-tools",
+    "priority": 25,
+    "dailyLimit": 500,
+    "keyHint": "mistral → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_MISTRAL_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "mistral-magistral-medium-latest": {
+    "endpoint": "https://api.mistral.ai/v1/chat/completions",
+    "model": "magistral-medium-latest",
+    "priority": 17,
+    "dailyLimit": 500,
+    "keyHint": "mistral → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_MISTRAL_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "deepseek-deepseek-v4-pro": {
+    "endpoint": "https://api.deepseek.com/chat/completions",
+    "model": "deepseek-v4-pro",
+    "priority": 40,
+    "dailyLimit": 1000,
+    "keyHint": "deepseek → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_DEEPSEEK_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "nim-llama-3-2-90b-vision-instruct": {
+    "endpoint": "https://integrate.api.nvidia.com/v1/chat/completions",
+    "model": "meta/llama-3.2-90b-vision-instruct",
+    "priority": 2,
+    "dailyLimit": 40,
+    "keyHint": "nim → Keys (автодобавлено, vision)",
+    "envVar": "PROVIDER_NIM_APIKEY",
+    "free": true,
+    "category": "vision"
+  },
+  "nim-minimax-m3": {
+    "endpoint": "https://integrate.api.nvidia.com/v1/chat/completions",
+    "model": "minimaxai/minimax-m3",
+    "priority": 42,
+    "dailyLimit": 40,
+    "keyHint": "nim → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_NIM_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "mistral-devstral-2512": {
+    "endpoint": "https://api.mistral.ai/v1/chat/completions",
+    "model": "devstral-2512",
+    "priority": 7,
+    "dailyLimit": 500,
+    "keyHint": "mistral → Keys (автодобавлено, coding)",
+    "envVar": "PROVIDER_MISTRAL_APIKEY",
+    "free": true,
+    "category": "coding"
+  },
+  "nim-kimi-k3": {
+    "endpoint": "https://integrate.api.nvidia.com/v1/chat/completions",
+    "model": "moonshotai/kimi-k3",
+    "priority": 41,
+    "dailyLimit": 40,
+    "keyHint": "nim → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_NIM_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "nim-nemotron-3-nano-30b-a3b": {
+    "endpoint": "https://integrate.api.nvidia.com/v1/chat/completions",
+    "model": "nvidia/nemotron-3-nano-30b-a3b",
+    "priority": 19,
+    "dailyLimit": 40,
+    "keyHint": "nim → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_NIM_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "nim-nemotron-3-nano-omni-30b-a3b-r": {
+    "endpoint": "https://integrate.api.nvidia.com/v1/chat/completions",
+    "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+    "priority": 1,
+    "dailyLimit": 40,
+    "keyHint": "nim → Keys (автодобавлено, vision)",
+    "envVar": "PROVIDER_NIM_APIKEY",
+    "free": true,
+    "category": "vision"
+  },
+  "nim-nemotron-3-super-120b-a12b": {
+    "endpoint": "https://integrate.api.nvidia.com/v1/chat/completions",
+    "model": "nvidia/nemotron-3-super-120b-a12b",
+    "priority": 20,
+    "dailyLimit": 40,
+    "keyHint": "nim → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_NIM_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "nim-laguna-xs-2-1": {
+    "endpoint": "https://integrate.api.nvidia.com/v1/chat/completions",
+    "model": "poolside/laguna-xs-2.1",
+    "priority": 39,
+    "dailyLimit": 40,
+    "keyHint": "nim → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_NIM_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "nim-nemotron-3-5-lightning-30b-a3b": {
+    "endpoint": "https://integrate.api.nvidia.com/v1/chat/completions",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "priority": 44,
+    "dailyLimit": 40,
+    "keyHint": "nim → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_NIM_APIKEY",
+    "free": true,
+    "category": "general"
+  },
+  "nim-gemma-4-31b-it": {
+    "endpoint": "https://integrate.api.nvidia.com/v1/chat/completions",
+    "model": "google/gemma-4-31b-it",
+    "priority": 1,
+    "dailyLimit": 40,
+    "keyHint": "nim → Keys (автодобавлено, general)",
+    "envVar": "PROVIDER_NIM_APIKEY",
+    "free": true,
+    "category": "general"
   }
 }

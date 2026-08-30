@@ -94,6 +94,47 @@ const METHODOLOGY_CONFIG = Object.assign(
   (config.methodology && typeof config.methodology === 'object') ? config.methodology : {}
 );
 
+// --- Самообновляющаяся база моделей (Model Discovery Engine) ---
+// Планировщик живёт внутри сервера: работает «всегда» у всех пользователей
+// пакета без cron/launchd. config.modelManager.enabled=false отключает.
+function _loadEnvFile() {
+  try {
+    const envPath = path.join(__dirname, '.env');
+    if (!fs.existsSync(envPath)) return;
+    for (const line of fs.readFileSync(envPath, 'utf8').split('\n')) {
+      const t = line.trim();
+      if (!t || t.startsWith('#')) continue;
+      const eq = t.indexOf('=');
+      if (eq > 0 && !process.env[t.slice(0, eq).trim()]) process.env[t.slice(0, eq).trim()] = t.slice(eq + 1).trim();
+    }
+  } catch {}
+}
+_loadEnvFile();
+const { ModelManager } = require('./lib/modelmanager');
+const MODEL_MANAGER_CONFIG = Object.assign(
+  {},
+  (config.modelManager && typeof config.modelManager === 'object') ? config.modelManager : {}
+);
+const modelManager = new ModelManager({
+  dbPath: path.join(__dirname, 'models-db.json'),
+  catalogPath: path.join(__dirname, 'providers.json'),
+  configPath: path.join(__dirname, 'config.json'),
+  keys: {
+    openrouter: process.env.PROVIDER_OPENROUTER_APIKEY || '',
+    huggingface: process.env.HF_TOKEN || process.env.PROVIDER_HF_APIKEY || '',
+    groq: process.env.PROVIDER_GROQ_APIKEY || '',
+    mistral: process.env.PROVIDER_MISTRAL_APIKEY || '',
+    gemini: process.env.PROVIDER_GEMINI_APIKEY || '',
+    cerebras: process.env.PROVIDER_CEREBRAS_APIKEY || '',
+    deepseek: process.env.PROVIDER_DEEPSEEK_APIKEY || '',
+    nim: process.env.PROVIDER_NIM_APIKEY || '',
+  },
+  fetchImpl: (url, opts) => fetch(url, opts),
+  config: MODEL_MANAGER_CONFIG,
+  reload: () => { try { reloadProviders(); } catch {} },
+  log: (msg) => logger.info('[modelManager] ' + msg),
+});
+
 // Health check
 const healthIntervals = {}; // key -> { nextCheck, backoff }
 
@@ -1066,6 +1107,40 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (parsedUrl.pathname === '/v1/models-db' && req.method === 'GET') {
+    // Структурированная база моделей: паспорта + статистика + топ по скору.
+    if (AUTH_KEY) {
+      const apiKey = (req.headers.authorization || '').replace('Bearer ', '').trim();
+      const keyFromQuery = parsedUrl.searchParams.get('key');
+      if (apiKey !== AUTH_KEY && keyFromQuery !== AUTH_KEY) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'Invalid API key' } }));
+        return;
+      }
+    }
+    try {
+      const models = modelManager.db.all()
+        .map(m => ({
+          key: m.key, model: m.model, source: m.source, category: m.category,
+          contextWindow: m.contextWindow, dailyLimit: m.dailyLimit,
+          score: m.score || 0, status: m.status,
+          lastCheckedAt: m.lastCheckedAt || null, lastOkAt: m.lastOkAt || null,
+        }))
+        .sort((a, b) => b.score - a.score);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        stats: modelManager.db.stats(),
+        top: models.slice(0, 10),
+        models,
+        manager: { enabled: MODEL_MANAGER_CONFIG.enabled !== false, intervalHours: modelManager.config.intervalHours, running: modelManager._running },
+      }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: err.message } }));
+    }
+    return;
+  }
+
   if (parsedUrl.pathname === '/health') {
     const h = getHealth();
     const upCount = Object.values(h).filter(v => v.status === 'up').length;
@@ -1349,12 +1424,18 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, process.env.HOST || '127.0.0.1', () => {
   logger.info('Freegate started', { port: PORT });
   console.log('Dashboard: http://localhost:' + PORT + '/');
+  // Самообновляющаяся база моделей: первый цикл через 2 мин, далее по интервалу.
+  if (MODEL_MANAGER_CONFIG.enabled !== false) {
+    modelManager.start();
+    logger.info('ModelManager started', { intervalHours: modelManager.config.intervalHours });
+  }
 });
 
 const _shutdown = () => {
   if (memStore) { memStore.stopTimer(); memStore.save(); }
   require('./lib/health').saveState();
   cache.persist();
+  try { modelManager.stop(); } catch {}
   server.close(() => process.exit(0));
 };
 process.on('SIGINT', _shutdown);

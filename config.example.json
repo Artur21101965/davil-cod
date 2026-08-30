@@ -3,6 +3,12 @@
   "port": 4000,
   "auth": "your-secret-key-here",
   "rateLimit": { "maxRequests": 100, "windowMs": 60000 },
+  "modelManager": {
+    "enabled": true,
+    "intervalHours": 6,
+    "autoAdd": true,
+    "recheckDisabledDays": 7
+  },
   "methodology": {
     "enabled": true,
     "prompts": {

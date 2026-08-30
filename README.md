@@ -26,7 +26,8 @@ never see "rate limit", and you never pay.
 | | |
 |---|---|
 | 🔀 **Auto-failover** | 25 providers in one chain. Provider down? The next one answers. |
-| 🤖 **Self-managing models** | Auto-discovers new free models, tests them, adds working ones, disables dead ones — every 6h. |
+| 🤖 **Self-managing models** | Auto-discovers new free models, tests them, adds working ones, disables dead ones — built-in scheduler, always-fresh model base. |
+| 🗂️ **Model database** | Structured passport per model (score, latency, context window, history) + sorting: best models get routing priority. |
 | 🏷️ **Model categories** | reasoning / coding / general / vision / local — the right model for the right job. |
 | 🖼️ **Two-stage vision** | Screenshot → vision model reads it → coding model answers the fix. |
 | 💰 **Free** | Free models only. The dashboard shows each provider's remaining limit. |
@@ -132,6 +133,31 @@ Category distribution is visible on the dashboard and via
 > Methodologist prompts are a condensed derived text inspired by
 > [superpowers](https://github.com/obra/superpowers) (MIT). Full agentic cycle
 > (tools, subagents) runs on the client side.
+
+### Self-updating model database
+
+The scheduler lives inside the server — always on, no cron/launchd needed,
+works for every npm/Docker user. Every 6 hours (configurable) Freegate:
+
+1. **Checks existing** models: dead ones (404/402) get disabled.
+2. **Re-checks dead** models after 7 days — if the provider restores a model, it's re-enabled automatically.
+3. **Scans 8 sources**: OpenRouter, HuggingFace + native model lists of Groq, Mistral, Gemini, Cerebras, DeepSeek, NVIDIA NIM.
+4. **Tests new candidates** in parallel and adds the working ones.
+5. **Computes a score** (success rate + latency + context window + freshness) and sorts: best models get routing priority.
+
+Manual catalog entries (your hand-set priorities in `providers.json`) are never
+overwritten — sorting applies only to auto-added models.
+
+```bash
+node tools/models-db.js          # model base report
+node scripts/auto-manage-models.js   # manual cycle run
+```
+
+Configuration (`config.json`):
+
+```json
+{ "modelManager": { "enabled": true, "intervalHours": 6, "autoAdd": true, "recheckDisabledDays": 7 } }
+```
 
 ## Development
 

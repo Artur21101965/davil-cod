@@ -5,6 +5,9 @@ config.json
 # Служебные файлы
 state.json
 memory.json
+models-db.json
+model-manager.log
+auto-manage.log
 proxy.log
 proxy.log.*
 watchdog.log
