@@ -20,6 +20,7 @@
 - **Окно-осознанный авто-апгрейд** (server.js + lib/routing.js `needsWindowUpgrade`): запрос с `est > win×1.5` (WINDOW_FIT_FACTOR) не влезает в окно target → компакция пропускается, target исключается из цепочки, провайдер выбирается из capable-пула (`win >= requestTokens || win === 0`). Считается `upgradedCount` в телеметрии.
 - **Компакция** (lib/compactor.js): порог 60k токенов, `CHARS_PER_TOKEN=1.5` (намеренно консервативно; opencode «264k» ≈ ~2× прокси-оценки), keep_recent 30k. Оценка по символам, сжимает слишком большие диалоги.
 - **Долговременная память**: при компакции summarizer отдаёт JSON `{summary, facts}` — факты автоматически в `memory.json` (0 доп. LLM-вызовов). Перед кэшем запрос анализируется, релевантные факты добавляются **user-сообщением** `[Память: ...]` после system (кэш-ключ строится из user → разные факты = разные ключи, без отравления кэша).
+- **Productive Agent Layer** (30.08): инженерная дисциплина в запросе — `lib/taskclassify.js` классифицирует задачу (coding/reasoning/search/chat без LLM), `lib/methodology.js` вставляет короткий системный промпт-методолог после памяти/до кэша (system игнорируется normalize → кэш не отравляется), `server.js` бустит вес моделей под категорию. Метрика `tasks`/`taskTotal` в contextstats → `/health` и `/v1/stats`, карточка «Контекст» + `tools/context-diag.js`. Toggle: `config.methodology.enabled` (по умолчанию true). Тексты-методологи — производный сжатый текст по мотивам superpowers (MIT, атрибуция в `docs/methodology/README.md`).
 - **Тир-маппинг**: tier-s→codestral, tier-splus/tier-l→minimax-m3, tier-xl→dots-3, Best→minimax-m3.
 - **404**: «does not exist» → permanent disable; «Provider returned error» → короткий circuit-breaker 70с, не отключает провайдера.
 - **Bandit-прогрев**: холодные приоры {1,1} или ≤4 испытаний → {a:6,b:2} при старте сервера.
@@ -33,7 +34,7 @@
 - ~~Mojibake в русском ответе~~ **ИСПРАВЛЕНО 26.08**: `data += chunk` / `chunk.toString()` дробили multi-byte UTF-8 на '' (символ `р` резался по байтам). Теперь везде `StringDecoder('utf8')` (providers.js + server.js, streams/cache/retry).
 
 ## Тесты
-- 150 тестов: `node --test test/*.test.js` (proxy, clean, compactor, memory, memory-store, vision, dashboard, semcache, contextstats)
+- 184 теста: `node --test test/*.test.js` (proxy, clean, compactor, memory, memory-store, vision, dashboard, semcache, contextstats, taskclassify, methodology)
 - Перед публикацией: тесты + `node --check server.js lib/*.js`
 - `POST /v1/cache/clear` и `POST /v1/reload` требуют auth (Bearer); память чистится/сейвится автоматически
 
