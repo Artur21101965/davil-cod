@@ -163,3 +163,28 @@ describe('ContextStats retention', () => {
     assert.equal(snap.buckets[0].provider, 'new');
   });
 });
+
+describe('ContextStats.upgradedCount', () => {
+  it('aggregates upgraded from record into bucket/summary', () => {
+    const t = Date.parse('2026-08-30T10:00:00Z');
+    const cs = new ContextStats();
+    cs.record({ ts: t, provider: 'a', upgraded: 1, status: 200 });
+    cs.record({ ts: t, provider: 'a', upgraded: true, status: 200 });
+    cs.record({ ts: t, provider: 'a', status: 400 });
+    const b = cs.snapshot().buckets[0];
+    assert.equal(b.upgradedCount, 2);
+    const s = cs.summary(t + 3600000);
+    assert.equal(s.upgradedCount, 2);
+    assert.equal(s.providers.a.upgradedCount, 2);
+  });
+
+  it('round-trips upgradedCount through serialize → load', () => {
+    const t = Date.parse('2026-08-30T10:00:00Z');
+    const cs = new ContextStats();
+    cs.record({ ts: t, provider: 'x', upgraded: 1, status: 200 });
+    const cs2 = new ContextStats();
+    cs2.load(cs.serialize());
+    const b = cs2.snapshot().buckets.find(x => x.provider === 'x');
+    assert.equal(b.upgradedCount, 1);
+  });
+});
