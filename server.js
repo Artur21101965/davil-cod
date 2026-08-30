@@ -324,7 +324,6 @@ async function handleChatCompletion(req, res, body) {
   // сжимать контекст, который провайдер с большим окном возьмёт целиком.
   const windowUpgraded = Array.isArray(body.messages) && body.messages.length > 0 &&
     needsWindowUpgrade(PROVIDERS[targetProviderKey]?.context_window || 0, estimateTokens(body.messages));
-  if (windowUpgraded) measure.upgraded = 1;
 
   // Compact overly large conversations so free models don't reject on context.
   // Runs AFTER the vision pipeline (images already converted to text above).
@@ -336,6 +335,7 @@ async function handleChatCompletion(req, res, body) {
   // Контекстная телеметрия: токены после компакции + доля системного промпта.
   if (Array.isArray(body.messages)) {
     measure.sentTokens = estimateTokens(body.messages);
+    measure.est = measure.sentTokens;
     measure.compacted = measure.sentTokens < measure.origTokens;
     const sysChars = body.messages.filter(m => m && m.role === 'system').reduce((a, m) => a + (typeof m.content === 'string' ? m.content.length : 0), 0);
     const allChars = body.messages.reduce((a, m) => a + (typeof (m && m.content) === 'string' ? m.content.length : 0), 0);
@@ -424,6 +424,10 @@ async function handleChatCompletion(req, res, body) {
       return;
     }
   }
+
+  // Запрос реально идёт к провайдеру (кэш промахнулся) — только теперь помечаем
+  // апгрейд: кэш-хит апгрейдом не считается (апстрим-вызова не было).
+  if (windowUpgraded) measure.upgraded = 1;
 
   // Weighted selection among healthy providers
   const today = new Date().toISOString().slice(0, 10);

@@ -32,7 +32,7 @@ if (!ctx || !Array.isArray(ctx.buckets)) {
 const cutoff = Date.now() - hours * 3600 * 1000;
 const buckets = ctx.buckets.filter(b => b && typeof b.ts === 'number' && b.ts >= cutoff);
 
-let total = 0, near = 0, over = 0, compact = 0, upgraded = 0, cacheHits = 0, sumReal = 0, realCount = 0, ratioMax = 0;
+let total = 0, near = 0, over = 0, compact = 0, upgraded = 0, cacheHits = 0, sumReal = 0, realCount = 0, sumEst = 0, estCount = 0, ratioMax = 0;
 const byProvider = {};
 for (const b of buckets) {
   total += b.requests || 0;
@@ -42,6 +42,7 @@ for (const b of buckets) {
   upgraded += b.upgradedCount || 0;
   cacheHits += (b.cacheExact || 0) + (b.cacheSem || 0);
   if (b.sumReal > 0) { sumReal += b.sumReal; realCount += b.requests || 0; }
+  if (b.sumEst > 0) { sumEst += b.sumEst; estCount += b.requests || 0; }
   if ((b.ratioMax || 0) > ratioMax) ratioMax = b.ratioMax;
   const p = byProvider[b.provider] || (byProvider[b.provider] = { requests: 0, nearWindow: 0, overWindow: 0, compactCount: 0, upgradedCount: 0 });
   p.requests += b.requests || 0;
@@ -56,17 +57,18 @@ if (over > 0) status = 'OVERFLOW';
 else if (narrow.length > 0) status = 'NARROW';
 
 if (asJson) {
-  console.log(JSON.stringify({ hours, status, total, near, over, compact, upgraded, cacheHits, cacheHitRate: total ? Math.round((cacheHits / total) * 100) : 0, avgReal: realCount ? Math.round(sumReal / realCount) : 0, ratioMax, narrow, providers: byProvider }, null, 2));
+  console.log(JSON.stringify({ hours, status, total, near, over, compact, upgraded, cacheHits, cacheHitRate: total ? Math.round((cacheHits / total) * 100) : 0, avgReal: realCount ? Math.round(sumReal / realCount) : 0, avgEst: estCount ? Math.round(sumEst / estCount) : 0, ratioMax, narrow, providers: byProvider }, null, 2));
   process.exit(0);
 }
 
 const AVG_REAL = realCount ? Math.round(sumReal / realCount) : 0;
+const AVG_EST = estCount ? Math.round(sumEst / estCount) : 0;
 console.log(`Контекстная телеметрия за ${hours}ч`);
 console.log('-------------------------------');
 console.log(`Статус узкого места: ${status}`);
 console.log(`Запросов: ${total}  Кэш-hit: ${cacheHits} (${total ? Math.round((cacheHits / total) * 100) : 0}%)`);
 console.log(`Впритык к окну: ${near}  Поверх окна: ${over}  Компакций: ${compact}  Апгрейдов (окно): ${upgraded}`);
-console.log(`Средний real/запрос: ${AVG_REAL} токенов  Max ratio: ${ratioMax}`);
+console.log(`Средний real/запрос: ${AVG_REAL} токенов  Средний est/запрос: ${AVG_EST} токенов  Max ratio: ${ratioMax}`);
 if (narrow.length > 0) console.log(`Узкие провайдеры: ${narrow.join(', ')}`);
 console.log('');
 if (Object.keys(byProvider).length === 0) { console.log('(замеров за период нет — пошлите запросы через прокси)'); process.exit(0); }

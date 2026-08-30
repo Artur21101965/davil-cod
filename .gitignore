@@ -4,6 +4,7 @@ config.json
 
 # Служебные файлы
 state.json
+memory.json
 proxy.log
 proxy.log.*
 watchdog.log

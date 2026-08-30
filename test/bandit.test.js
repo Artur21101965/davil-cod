@@ -1,5 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert');
+// Тестовая изоляция: не пишем в prod-лог/стейт (lib/health.js читает env).
+const os = require('os');
+const path = require('path');
+process.env.LOG_PATH = process.env.LOG_PATH || path.join(os.tmpdir(), 'freegate-test.log');
+process.env.STATE_PATH = process.env.STATE_PATH || path.join(os.tmpdir(), 'freegate-test-state.json');
 const { bucket, sampleBeta, pick, recordOutcome, isTransientLimit } = require('../lib/bandit');
 
 test('bandit: bucket boundaries', () => {

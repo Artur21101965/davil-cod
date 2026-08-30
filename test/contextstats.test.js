@@ -150,6 +150,31 @@ describe('ContextStats.summary', () => {
     assert.equal(s.providers['lost-prompt'].nearWindow, 0);
     assert.equal(s.providers['zai'].requests, 1);
   });
+
+  it('avgRatio divides by measured requests only (не кэш/ошибки без win)', () => {
+    const cs = fresh();
+    const t = Date.now() - 3600 * 1000;
+    cs.record({ ts: t, provider: 'zai', real: 50000, win: 100000, status: 200 });  // ratio 0.5
+    cs.record({ ts: t, provider: 'zai', real: 25000, win: 100000, status: 200 });  // ratio 0.25
+    cs.record({ ts: t, provider: 'zai', cacheType: 'exact', status: 200 });        // без real
+    cs.record({ ts: t, provider: 'zai', real: 1000, win: 0, status: 400 });        // без win
+    const s = cs.summary();
+    assert.equal(s.totalRequests, 4);
+    // (0.5 + 0.25) / 2 = 0.375, а НЕ (0.75) / 4
+    assert.ok(Math.abs(s.avgRatio - 0.375) < 1e-6, 'avgRatio=' + s.avgRatio);
+  });
+
+  it('load() обнуляет legacy-ratioSum (нет ratioCount), чтобы не завышать avgRatio', () => {
+    const cs = new ContextStats();
+    const t = Date.now() - 3600 * 1000;
+    const hour = new Date(t).toISOString().slice(0, 13) + ':00';
+    // legacy-бакет: ratioSum есть, а ratioCount нет (или 0 — схема до фикса)
+    const legacy = { buckets: [{ key: hour + '|zai', hour, provider: 'zai', ts: t, requests: 1, sumReal: 50000, ratioSum: 5.1, ratioCount: 0, ratioMax: 5.1, status200: 1 }] };
+    cs.load(legacy);
+    cs.record({ ts: t, provider: 'zai', real: 25000, win: 100000, status: 200 }); // ratio 0.25
+    const s = cs.summary(t + 3600000);
+    assert.ok(Math.abs(s.avgRatio - 0.25) < 1e-6, 'avgRatio только по свежим, legacy не влияет: ' + s.avgRatio);
+  });
 });
 
 describe('ContextStats retention', () => {

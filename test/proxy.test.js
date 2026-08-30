@@ -1,5 +1,11 @@
 // test/proxy.test.js — unit tests for Freegate proxy logic (no external deps)
 // Run: node --test test/
+// Тестовая изоляция: уводим prod-лог и prod-стейт в temp, чтобы `node --test`
+// не писал в proxy.log/state.json (lib/logger.js и lib/health.js читают env).
+const os = require('os');
+const path = require('path');
+process.env.LOG_PATH = process.env.LOG_PATH || path.join(os.tmpdir(), 'freegate-test.log');
+process.env.STATE_PATH = process.env.STATE_PATH || path.join(os.tmpdir(), 'freegate-test-state.json');
 const test = require('node:test');
 const assert = require('node:assert');
 const { LRUCache } = require('../lib/cache');
@@ -99,6 +105,18 @@ test('health: classifyErrorMs returns sane durations', () => {
   health.recordFailure(key, 401);
   // 401 should open immediately (openMs 300s > 60s threshold)
   assert.strictEqual(health.isCircuitOpen(key), true);
+});
+
+test('health/logger: уважают LOG_PATH/STATE_PATH (изоляция от прод-файлов)', () => {
+  const fs = require('fs');
+  const health = require('../lib/health');
+  const key = `iso-${Date.now()}`;
+  health.recordFailure(key, 401);   // открывает breaker → logger.warn → пишет в LOG_PATH
+  health.saveState();               // пишет state в STATE_PATH
+  const log = fs.readFileSync(process.env.LOG_PATH, 'utf8');
+  assert.ok(log.includes(key), 'лог ушёл в изолированный LOG_PATH');
+  const st = JSON.parse(fs.readFileSync(process.env.STATE_PATH, 'utf8'));
+  assert.ok(st.circuitBreakers && st.circuitBreakers[key], 'state ушёл в изолированный STATE_PATH');
 });
 
 test('health: dailyUsage tracks per-provider per-day counts', () => {
@@ -275,21 +293,14 @@ test('health: getContextStats returns a working ContextStats singleton', () => {
 
 test('health: saveState writes stats.context as buckets array (state restored)', () => {
   const fs = require('fs');
-  const path = require('path');
-  const statePath = path.join(__dirname, '..', 'state.json');
-  const orig = fs.existsSync(statePath) ? fs.readFileSync(statePath, 'utf8') : null;
-  try {
-    const health = require('../lib/health');
-    health.getContextStats().record({ ts: Date.now(), provider: 'roundtrip-ctx', real: 1000, win: 2000, status: 200 });
-    health.saveState();
-    const saved = JSON.parse(fs.readFileSync(statePath, 'utf8'));
-    assert.ok(saved.stats && Array.isArray(saved.stats.context.buckets), 'stats.context persisted as buckets array');
-    health.getContextStats().load(saved.stats.context);
-    assert.ok(health.getContextStats().snapshot().buckets.find(b => b.provider === 'roundtrip-ctx'), 'bucket survives save→load');
-  } finally {
-    if (orig === null) { try { fs.unlinkSync(statePath); } catch {} }
-    else { try { fs.writeFileSync(statePath, orig); } catch {} }
-  }
+  const health = require('../lib/health');
+  const statePath = process.env.STATE_PATH;
+  health.getContextStats().record({ ts: Date.now(), provider: 'roundtrip-ctx', real: 1000, win: 2000, status: 200 });
+  health.saveState();
+  const saved = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+  assert.ok(saved.stats && Array.isArray(saved.stats.context.buckets), 'stats.context persisted as buckets array');
+  health.getContextStats().load(saved.stats.context);
+  assert.ok(health.getContextStats().snapshot().buckets.find(b => b.provider === 'roundtrip-ctx'), 'bucket survives save→load');
 });
 
 test('contextstats: summary contract used by /health and /v1/stats', () => {
@@ -347,4 +358,5 @@ test('server: window-aware upgrade wiring (structural)', () => {
   assert.ok(/&&\s*!\s*windowUpgraded\s*\)\s*\{[\s\S]*prepareMessages/.test(src), 'prepareMessages пропускается при апгрейде');
   assert.ok(src.includes('if (requestTokens > MIN_WINDOW || windowUpgraded)'), 'window-фильтр без гейта при апгрейде');
   assert.ok(src.includes('!windowUpgraded && MODEL_MAP[requestedModel]'), 'target-first пропускается при апгрейде');
+  assert.ok(/measure\.est\s*=\s*measure\.sentTokens/.test(src), 'sumEst питается оценкой отправленных токенов');
 });
