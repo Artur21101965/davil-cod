@@ -241,7 +241,7 @@ test('CLI: init (non-interactive) creates config and env without overwriting', (
   const os = require('os');
   const fs = require('fs');
   const path = require('path');
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'davil-init-'));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'freegate-init-'));
   // Pre-existing config must be preserved
   fs.writeFileSync(path.join(tmp, 'config.json'), '{"port":4123}');
   const bin = path.join(__dirname, '..', 'bin', 'freegate.js');
@@ -443,4 +443,23 @@ test('server: target-first пропускается при выгоревшем 
   assert.ok(/targetBurned\s*=\s*tHealth\?\.status\s*===\s*'ratelimited'/.test(src), 'проверяет ratelimited');
   assert.ok(/tCap\s*>\s*0\s*&&\s*tLimit\s*>=\s*tCap\s*\*\s*0\.9/.test(src), 'проверяет лимит >=90%');
   assert.ok(/if \(!targetBurned\)\s*\{/.test(src), 'target-first только если не выгорел');
+});
+
+test('server: /v1/stats отдаёт экономию (savings) против платных API', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  assert.ok(/aggregateSavings\s*\(/.test(src), 'использует aggregateSavings');
+  assert.ok(/"savings"/.test(src) || /savings:/.test(src), 'поле savings в ответе /v1/stats');
+});
+
+test('dashboard: карточка экономии + сохранение _savings', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'lib', 'dashboard.js'), 'utf8');
+  assert.ok(html.includes('cardSavings'), 'карточка Экономия');
+  assert.ok(html.includes('id="savings"'), 'элемент #savings');
+  assert.ok(html.includes('_savings.savedUsd'), 'рендер суммы экономии');
+  assert.ok(html.includes('_savings = _statsData.savings'), 'сохранение savings из stats');
+  assert.ok(html.includes("savingsBasis"), 'пояснение расчёта');
 });

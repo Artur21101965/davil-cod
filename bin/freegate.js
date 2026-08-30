@@ -135,7 +135,7 @@ if (cmd === 'init') {
   const { execSync } = require('child_process');
   const isMac = process.platform === 'darwin';
   const launchDir = process.cwd();
-  const label = 'com.davilcod.proxy';
+  const label = 'com.freegate.proxy';
 
   if (isMac) {
     const plist = `<?xml version="1.0" encoding="UTF-8"?>

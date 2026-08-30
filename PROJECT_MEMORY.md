@@ -37,7 +37,7 @@
 - ~~Mojibake в русском ответе~~ **ИСПРАВЛЕНО 26.08**: `data += chunk` / `chunk.toString()` дробили multi-byte UTF-8 на '' (символ `р` резался по байтам). Теперь везде `StringDecoder('utf8')` (providers.js + server.js, streams/cache/retry).
 
 ## Тесты
-- 241 тест: `node --test test/*.test.js` (proxy, clean, compactor, memory, memory-store, vision, dashboard, semcache, contextstats, taskclassify, methodology, modeldb, modelscan, modelmanager)
+- 250 тестов: `node --test test/*.test.js` (proxy, clean, compactor, memory, memory-store, vision, dashboard, semcache, contextstats, taskclassify, methodology, modeldb, modelscan, modelmanager)
 - Перед публикацией: тесты + `node --check server.js lib/*.js`
 - `POST /v1/cache/clear` и `POST /v1/reload` требуют auth (Bearer); память чистится/сейвится автоматически
 
@@ -55,6 +55,12 @@
 - `freegate init` (неинтерактивный) — копирует config.example.json + .env.example без перезаписи (как раньше).
 - Вывод wizard'а: «Подключить к Cursor: ... http://localhost:4000/v1» — стартовый сниппет.
 - README.ru/README: quick-start с режимами + «Cursor в 2 клика».
+
+## Виральность + экономия + чистка (30.08)
+- **Экономия ($)**: `lib/economics.js` (aggregateSavings: input $3/M, output $15/M репрезентативно), поле `savings` в `/v1/stats`, карточка «Экономия» в дашборде (Обзор, акцентная сумма). Live: $35.10 на 10.6M токенов.
+- **Бейджи README**: «One endpoint — all agents» (#00d4ff), «price $0» (#00ff88), «runs locally — private» (#00ff88). Секция «🔒 Работает локально» (localhost свой у каждого, ключи/переписки не уходят) + скриншоты нового дашборда (assets/dashboard.png, assets/dashboard-models.png, 1372×800). Число моделей обновлено 25→34.
+- **Чистка бренда**: label launchd `com.davilcod.proxy`→`com.freegate.proxy`; тестовый tmp `davil-init-`→`freegate-init-`; титл дашборда уже «Freegate». DAVIL Cod остался только в исторических логах (gitignored).
+- **Удалена дублирующая launchd-служба** `com.davilcod.model-manager` (каждые 6ч запускала scripts/auto-manage-models.js parallel со встроенным ModelManager → двойной спам проб → перерасход лимитов). Теперь только встроенный планировщик в server.js.
 
 
 ## Публикация

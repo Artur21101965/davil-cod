@@ -5,13 +5,16 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![npm](https://img.shields.io/npm/v/freegate.svg)](https://www.npmjs.com/package/freegate)
 [![GitHub stars](https://img.shields.io/github/stars/Artur21101965/freegate?style=social)](https://github.com/Artur21101965/freegate)
+[![One endpoint](https://img.shields.io/badge/one%20endpoint-all%20agents-00d4ff)](/#features)
+[![Free](https://img.shields.io/badge/price-%240-00ff88)](/#why-free)
+[![Local](https://img.shields.io/badge/runs%20locally-private-00ff88)](/#private)
 
 **[Русская версия](README.ru.md) · Russian version**
 
 ## Why pay for LLMs when free ones exist?
 
-Your AI agent, bot, or script talks to a single OpenAI-compatible endpoint.
-Behind it, Freegate automatically routes requests across **25 free models**
+Your AI agent, bot, or script talks to a **single OpenAI-compatible endpoint**.
+Behind it, Freegate automatically routes requests across **34 free models**
 from Groq, Mistral, Gemini, NVIDIA NIM, OpenRouter, ZAI, Cerebras, DeepSeek
 and local models. If one provider goes down, gets overloaded, or burns its
 daily limit — the request **instantly falls through to the next one**. You
@@ -19,13 +22,20 @@ never see "rate limit", and you never pay.
 
 **Result:** full LLM access for everyday work at the price of **$0**.
 
+### 🔒 Runs locally — your conversations never leave your machine
+
+Freegate runs **on your machine** (`http://localhost:4000`). Your `localhost`
+is only yours — nobody else can connect to it, and you can't to theirs. Provider
+keys live in your local `.env`, history in local files. **No third-party server
+sees your keys or conversations.**
+
 ![Freegate Dashboard](assets/dashboard.png)
 
 ## Features
 
 | | |
 |---|---|
-| 🔀 **Auto-failover** | 25 providers in one chain. Provider down? The next one answers. |
+| 🔀 **Auto-failover** | 34 providers in one chain. Provider down? The next one answers. |
 | 🤖 **Self-managing models** | Auto-discovers new free models, tests them, adds working ones, disables dead ones — built-in scheduler, always-fresh model base. |
 | 🗂️ **Model database** | Structured passport per model (score, latency, context window, history) + sorting: best models get routing priority. |
 | 🏷️ **Model categories** | reasoning / coding / general / vision / local — the right model for the right job. |
@@ -33,10 +43,12 @@ never see "rate limit", and you never pay.
 | 💰 **Free** | Free models only. The dashboard shows each provider's remaining limit. |
 | ⚡ **Smart routing** | Picks the fastest, most stable provider for every request. |
 | 🛡️ **Reliability** | Circuit breaker, request queue, auto-disable of dead providers, watchdog. |
-| 📊 **Dashboard** | Status, speed, limits, history, tokens, RPM chart. |
+| 📊 **Dashboard** | Status, speed, limits, history, tokens, RPM chart, savings ($). RU/EN. |
 | 💾 **Disk cache** | Repeat prompts don't consume limits at all. |
 | 🎓 **Methodologist** | Agent answers like an engineer: plan→test→code (coding), stepwise (reasoning). Prompts customizable in `config.json`. |
 | 🔌 **Compatible** | Any OpenAI client: opencode, Cursor, your scripts. |
+
+![Freegate Models base](assets/dashboard-models.png)
 
 ## Quick start — 30 seconds
 

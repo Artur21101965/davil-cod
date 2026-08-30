@@ -8,6 +8,7 @@ const { loadState, initHealth, isCircuitOpen, recordSuccess, recordFailure, reco
 const { checkRateLimit } = require('./lib/rateLimit');
 const { handleDashboard } = require('./lib/dashboard');
 const { acquire, stats: poolStats } = require('./lib/pool');
+const { aggregateSavings } = require('./lib/economics');
 const { stripThink, cleanDelta, cleanMessage, fixReasoningMessage, isTooShort, MIN_ANSWER_LEN } = require('./lib/clean');
 const { classifyComplexity, maybeUpgradeTier, classifyVisionComplexity, needsWindowUpgrade } = require('./lib/routing');
 const { bucket, pick: banditPick, isTransientLimit } = require('./lib/bandit');
@@ -1251,6 +1252,7 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify({
       total_requests: s.totalRequests, successful_requests: s.successfulRequests, failed_requests: s.failedRequests,
       provider_usage: s.providerUsage, token_usage: s.tokenUsage, errors: s.errors, uptime_seconds: Math.floor((Date.now() - s.startTime) / 1000),
+      savings: (() => { try { return aggregateSavings(s.tokenUsage || {}); } catch { return null; } })(),
       health: Object.fromEntries(Object.entries(getHealth()).map(([k, v]) => {
         const limit = limits[k];
         const err = s.errors[k] || 0;
