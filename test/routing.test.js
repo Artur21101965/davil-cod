@@ -64,3 +64,28 @@ test('routing: vision complexity medium for long prose without code', () => {
   const score = classifyVisionComplexity(text);
   assert.ok(score >= 0.15 && score <= 0.5, `expected medium [0.15,0.5], got ${score}`);
 });
+
+const { needsWindowUpgrade, WINDOW_FIT_FACTOR } = require('../lib/routing');
+
+test('routing: WINDOW_FIT_FACTOR экспортируется (>1)', () => {
+  assert.equal(typeof WINDOW_FIT_FACTOR, 'number');
+  assert.ok(WINDOW_FIT_FACTOR > 1);
+});
+
+test('routing: needsWindowUpgrade решает по фактору 1.5', () => {
+  assert.equal(needsWindowUpgrade(33000, 100000), true, 'est 100k поверх 33k×1.5');
+  assert.equal(needsWindowUpgrade(33000, 45000), false, 'est 45k < 49.5k — влезает');
+  assert.equal(needsWindowUpgrade(33000, 49500), false, 'est == win×1.5 — не поверх');
+  assert.equal(needsWindowUpgrade(33000, 49501), true, 'чуть выше порога');
+});
+
+test('routing: needsWindowUpgrade при неизвестном окне не апгрейдит', () => {
+  assert.equal(needsWindowUpgrade(0, 100000), false);
+  assert.equal(needsWindowUpgrade(-5, 100000), false);
+  assert.equal(needsWindowUpgrade(33000, 0), false);
+});
+
+test('routing: needsWindowUpgrade с кастомным фактором', () => {
+  assert.equal(needsWindowUpgrade(33000, 50000, 2), false);
+  assert.equal(needsWindowUpgrade(33000, 70000, 2), true);
+});
