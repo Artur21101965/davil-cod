@@ -314,6 +314,7 @@ test('dashboard: renders context block', () => {
   assert.ok(html.includes('ctxBlock'), 'есть элемент #ctxBlock');
   assert.ok(html.includes('renderContext'), 'есть рендер renderContext');
   assert.ok(html.includes('context_summary'), 'refresh читает context_summary');
+  assert.ok(html.includes('upgradedCount'), 'renderContext читает апгрейды');
 });
 
 // Stop background timers so the test process can exit (health.js sets setInterval)
