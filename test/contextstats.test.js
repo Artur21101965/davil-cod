@@ -212,4 +212,30 @@ describe('ContextStats.upgradedCount', () => {
     const b = cs2.snapshot().buckets.find(x => x.provider === 'x');
     assert.equal(b.upgradedCount, 1);
   });
+
+  it('tracks task category counts in bucket and summary', () => {
+    const t = Date.parse('2026-08-30T10:00:00Z');
+    const cs = new ContextStats();
+    cs.record({ ts: t, provider: 'a', taskCategory: 'coding', status: 200 });
+    cs.record({ ts: t, provider: 'a', taskCategory: 'reasoning', status: 200 });
+    cs.record({ ts: t, provider: 'a', status: 200 }); // без категории — игнор
+    const b = cs.snapshot().buckets[0];
+    assert.equal(b.tasks.coding, 1);
+    assert.equal(b.tasks.reasoning, 1);
+    assert.equal(b.tasks.chat, 0);
+    const s = cs.summary(t + 3600000);
+    assert.equal(s.tasks.coding, 1);
+    assert.equal(s.tasks.reasoning, 1);
+    assert.equal(s.taskTotal, 2);
+  });
+
+  it('round-trips task counts through serialize → load', () => {
+    const t = Date.parse('2026-08-30T10:00:00Z');
+    const cs = new ContextStats();
+    cs.record({ ts: t, provider: 'x', taskCategory: 'coding', status: 200 });
+    const cs2 = new ContextStats();
+    cs2.load(cs.serialize());
+    const b = cs2.snapshot().buckets.find(x => x.provider === 'x');
+    assert.equal(b.tasks.coding, 1);
+  });
 });

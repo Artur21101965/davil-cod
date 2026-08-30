@@ -15,6 +15,8 @@ const { StringDecoder } = require('string_decoder');
 const logger = require('./lib/logger');
 const { KEY_GROUPS, readKeys, saveKeys, validateKey, getStoredKey } = require('./lib/setup');
 const { prepareMessages, estimateTokens, setMemory: compactorSetMemory } = require('./lib/compactor');
+const { classify: classifyTask } = require('./lib/taskclassify');
+const { injectMethodology, enabledByDefault: methodEnabledByDefault } = require('./lib/methodology');
 const { create: createMemoryStore } = require('./lib/memory-store');
 
 // Load persisted state
@@ -46,7 +48,7 @@ require('./lib/cache')._activeCache = cache;
 // Prefer cwd config.json (user's project) over the package dir.
 const CONFIG_CANDIDATES = [path.join(process.cwd(), 'config.json'), path.join(__dirname, 'config.json')];
 const CONFIG_PATH = CONFIG_CANDIDATES.find(p => fs.existsSync(p)) || CONFIG_CANDIDATES[1];
-let config = { port: 4000, auth: '', rateLimit: { maxRequests: 100, windowMs: 60000 } };
+let config = { port: 4000, auth: '', rateLimit: { maxRequests: 100, windowMs: 60000 }, methodology: true };
 try {
   const parsed = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
   if (parsed && typeof parsed === 'object') config = { ...config, ...parsed };
@@ -81,6 +83,13 @@ if (memStore) compactorSetMemory(memStore);
 const SEMCACHE_CONFIG = Object.assign(
   { enabled: true, minSimilarity: 0.85 },
   (config.semcache && typeof config.semcache === 'object') ? config.semcache : {}
+);
+
+// --- Методолог (инженерная дисциплина в промпте) ---
+// config.methodology.enabled=false отключает. По умолчанию включён.
+const METHODOLOGY_CONFIG = Object.assign(
+  { enabled: methodEnabledByDefault() },
+  (config.methodology && typeof config.methodology === 'object') ? config.methodology : {}
 );
 
 // Health check
@@ -384,6 +393,25 @@ async function handleChatCompletion(req, res, body) {
     }
   }
 
+  // --- Методолог (инженерная дисциплина) ---
+  // Классифицируем задачу (coding/reasoning/search/chat) и вставляем короткий
+  // системный промпт-методолог после памяти, до кэша. System-сообщение
+  // игнорируется normalize, поэтому кэш-ключ не меняется. Методолог влияет
+  // только на реальные запросы к провайдеру (кэш-хиты его не видят).
+  let taskCategory = 'chat';
+  if (METHODOLOGY_CONFIG.enabled && Array.isArray(body.messages)) {
+    try {
+      taskCategory = classifyTask(body.messages);
+      const injected = injectMethodology(body.messages, taskCategory, METHODOLOGY_CONFIG);
+      if (injected !== body.messages) {
+        body.messages = injected;
+        measure.taskCategory = taskCategory;
+      }
+    } catch (err) {
+      logger.error('Methodology error', { message: err.message });
+    }
+  }
+
   // Replays a previously cached completion (exact or semantic hit), preserving
   // the stream/non-stream shape the client asked for.
   function serveCached(res, cached, isStreaming) {
@@ -493,6 +521,12 @@ async function handleChatCompletion(req, res, body) {
         let weight = score / lat;
         if (h.status === 'ratelimited') weight *= 0.05;
         if (key === targetProviderKey) weight *= 1.15;
+        // Методолог: категория задачи задаёт буст моделям подходящей категории,
+        // не исключая fallback. coding→coding, reasoning→reasoning, chat/search→general.
+        const cat = provider.category || 'general';
+        if (taskCategory === 'coding' && cat === 'coding') weight *= 1.5;
+        else if (taskCategory === 'reasoning' && cat === 'reasoning') weight *= 1.5;
+        else if ((taskCategory === 'chat' || taskCategory === 'search') && cat === 'general') weight *= 1.2;
         const dailyLimit = provider.dailyLimit || 1000;
         const usedToday = getStats().providerUsage[key] || 0;
         if (usedToday >= dailyLimit * 0.9) weight *= 0.5;
