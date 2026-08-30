@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { LRUCache } = require('./lib/cache');
 const { PROVIDERS, MODEL_MAP, callProvider, reloadProviders } = require('./lib/providers');
-const { loadState, initHealth, isCircuitOpen, recordSuccess, recordFailure, recordRequest, recordTokens, getHealth, getStats, recordRecent, recordRpm, getRecent, getRpm, recordSelection, getLastSelection, getBandit, recordBandit, warmBanditPriors, getContextStats } = require('./lib/health');
+const { loadState, initHealth, isCircuitOpen, recordSuccess, recordFailure, recordRequest, recordTokens, getHealth, getStats, getReliability, recordRecent, recordRpm, getRecent, getRpm, recordSelection, getLastSelection, getBandit, recordBandit, warmBanditPriors, getContextStats } = require('./lib/health');
 const { checkRateLimit } = require('./lib/rateLimit');
 const { handleDashboard } = require('./lib/dashboard');
 const { acquire, stats: poolStats } = require('./lib/pool');
@@ -539,13 +539,22 @@ async function handleChatCompletion(req, res, body) {
 
   // Prefer providers below 90% of their daily limit; only fall back to
   // near-exhausted ones if that leaves nothing (avoids avoidable 429s).
-  let pool = windowPool;
-  const underLimit = windowPool.filter(([_, p]) => {
-    const limit = p.dailyLimit || 1000;
-    const used = (getStats().dailyUsage?.[p.key]?.[today]) || 0;
-    return used < limit * 0.9;
-  });
-  if (underLimit.length > 0) pool = underLimit;
+  // Крутящийся пул по дневным лимитам: провайдер, исчерпавший дневной лимит,
+  // исключается из выбора и не возвращается до сброса. Это лечит 429-спираль
+  // (модель с лимитом 50/день сгорает к обеду, дальше каждая попытка на ней —
+  // бесполезный 429). Остаёмся на живых; выгоревшие — только как крайний резерв.
+  const usedTodayFor = (key) => (getStats().dailyUsage?.[key]?.[today]) || 0;
+  const pool = (() => {
+    // Провайдеры, у которых дневной лимит ещё не исчерпан (strict < limit).
+    const exemptables = windowPool.filter(([_, p]) => {
+      const limit = p.dailyLimit || 0;
+      if (limit <= 0) return true; // нет лимита — считаем «бесконечным»
+      return usedTodayFor(p.key) < limit;
+    });
+    // Есть живые → только они. Все выгорели → вернуть весь пул (best-effort,
+    // bandit-штраф ниже сделает их маловероятными, но не невозможными).
+    return exemptables.length > 0 ? exemptables : windowPool;
+  })();
 
   let selected = [];
   if (pool.length > 0) {
@@ -575,9 +584,13 @@ async function handleChatCompletion(req, res, body) {
         // это дорого по лимитам и даёт размышления вместо краткого ответа.
         if ((taskCategory === 'chat' || taskCategory === 'search') && cat === 'reasoning') weight *= 0.15;
         else if ((taskCategory === 'chat' || taskCategory === 'search') && cat === 'vision') weight *= 0.3;
-        const dailyLimit = provider.dailyLimit || 1000;
-        const usedToday = getStats().providerUsage[key] || 0;
-        if (usedToday >= dailyLimit * 0.9) weight *= 0.5;
+        const dailyLimit = provider.dailyLimit || 0;
+        // Провайдер, исчерпавший дневной лимит (попал в пул лишь как крайний
+        // резерв, когда живы все выгорели), — сильно штрафуем, чтобы выбрать
+        // его только в безвыходной ситуации, а не в первой же попытке.
+        const usedToday = usedTodayFor(key);
+        if (dailyLimit > 0 && usedToday >= dailyLimit) weight *= 0.03;
+        else if (dailyLimit > 0 && usedToday >= dailyLimit * 0.9) weight *= 0.4;
         return { key, provider, weight };
       });
 
@@ -1256,6 +1269,13 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify({
       total_requests: s.totalRequests, successful_requests: s.successfulRequests, failed_requests: s.failedRequests,
       provider_usage: s.providerUsage, token_usage: s.tokenUsage, errors: s.errors, uptime_seconds: Math.floor((Date.now() - s.startTime) / 1000),
+      today: (() => {
+        const r = getReliability();
+        let success = 0, fail = 0;
+        for (const [_, v] of Object.entries(r)) { if (v && v.day === today) { success += v.success || 0; fail += v.fail || 0; } }
+        const total = success + fail;
+        return { requests: total, success, failed: fail, successRate: total > 0 ? Math.round((success / total) * 100) : 0 };
+      })(),
       savings: (() => { try { return aggregateSavings(s.tokenUsage || {}); } catch { return null; } })(),
       health: Object.fromEntries(Object.entries(getHealth()).map(([k, v]) => {
         const limit = limits[k];

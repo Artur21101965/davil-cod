@@ -453,12 +453,31 @@ test('server: /v1/stats отдаёт экономию (savings) против п�
   assert.ok(/"savings"/.test(src) || /savings:/.test(src), 'поле savings в ответе /v1/stats');
 });
 
+test('server: /v1/stats отдаёт дневную статистику (today: successRate)', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  assert.ok(/getReliability/.test(src), 'читает getReliability');
+  assert.ok(/"today":/.test(src) || /today:\s*\(\(\)\s*=>/.test(src), 'поле today в /v1/stats');
+  assert.ok(/successRate/.test(src), 'считает successRate');
+});
+
 test('server: простые задачи (chat/search) штрафуют reasoning-модели', () => {
   const fs = require('fs');
   const path = require('path');
   const src = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
   assert.ok(/chat'\s*\|\|\s*taskCategory\s*===\s*'search'/.test(src), 'проверяет chat/search');
   assert.ok(/cat\s*===\s*'reasoning'\)\s*weight\s*\*=\s*0\.15/.test(src), 'штраф reasoning ×0.15 для простых задач');
+});
+
+test('server: крутящийся пул исключает исчерпавшие лимит модели', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  assert.ok(/usedTodayFor/.test(src), 'хелпер дневного использования usedTodayFor');
+  assert.ok(/dailyUsage\?\.\[key\]\?\.\[today\]/.test(src), 'читает дневной лимит из dailyUsage');
+  assert.ok(/exemptables\.length\s*>\s*0\s*\?\s*exemptables\s*:\s*windowPool/.test(src), 'исключает выгоревшие, возвращает raw-пул только если все выгорели');
+  assert.ok(/usedToday\s*>=\s*dailyLimit\)\s*weight\s*\*=\s*0\.03/.test(src), 'исчерпанные штрафуются ×0.03');
 });
 
 test('dashboard: карточка экономии + сохранение _savings', () => {
