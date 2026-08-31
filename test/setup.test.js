@@ -25,7 +25,7 @@ describe('setup.readKeys', () => {
     loadSetup();
     const { keys } = setup.readKeys();
     assert.equal(typeof keys, 'object');
-    assert.equal(Object.keys(keys).length, 9);
+    assert.equal(Object.keys(keys).length, 16);
     for (const v of Object.values(keys)) {
       assert.equal(v, '');
     }
@@ -81,7 +81,7 @@ describe('setup.saveKeys', () => {
 describe('setup.KEY_GROUPS', () => {
   it('has 9 key groups', () => {
     loadSetup();
-    assert.equal(Object.keys(setup.KEY_GROUPS).length, 9);
+    assert.equal(Object.keys(setup.KEY_GROUPS).length, 16);
   });
 
   it('each group has name, url, description, steps', () => {

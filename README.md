@@ -14,7 +14,7 @@
 ## Why pay for LLMs when free ones exist?
 
 Your AI agent, bot, or script talks to a **single OpenAI-compatible endpoint**.
-Behind it, Freegate automatically routes requests across **34 free models**
+Behind it, Freegate automatically routes requests across **50+ free models**
 from Groq, Mistral, Gemini, NVIDIA NIM, OpenRouter, ZAI, Cerebras, DeepSeek
 and local models. If one provider goes down, gets overloaded, or burns its
 daily limit — the request **instantly falls through to the next one**. You
@@ -35,19 +35,21 @@ sees your keys or conversations.**
 
 | | |
 |---|---|
-| 🔀 **Auto-failover** | 34 providers in one chain. Provider down? The next one answers. |
+| 🔀 **Auto-failover** | 50+ providers in one chain. Provider down? The next one answers. |
 | 🤖 **Self-managing models** | Auto-discovers new free models, tests them, adds working ones, disables dead ones — built-in scheduler, always-fresh model base. |
 | 🗂️ **Model database** | Structured passport per model (score, latency, context window, history) + sorting: best models get routing priority. |
 | 🏷️ **Model categories** | reasoning / coding / general / vision / local — the right model for the right job. |
 | 🖼️ **Two-stage vision** | Screenshot → vision model reads it → coding model answers the fix. |
 | 💰 **Free** | Free models only. The dashboard shows each provider's remaining limit. |
 | ⚡ **Smart routing** | Picks the fastest, most stable provider for every request. |
+| 🎯 **Routing strategies** | `weighted` (default), `weighted-roundrobin`, `weighted-least` — burn limits more evenly. |
 | 🛡️ **Reliability** | Circuit breaker, request queue, auto-disable of dead providers, watchdog. |
 | 📊 **Dashboard** | Status, speed, limits, history, tokens, RPM chart, savings ($). RU/EN. **4 themes** (PolyCopy/Warm/Cosmic/Paper) — switcher in the header. |
 | 💾 **Disk cache** | Repeat prompts don't consume limits at all. |
 | 🎓 **Methodologist** | Agent answers like an engineer: plan→test→code (coding), stepwise (reasoning), like a frontend designer (design). Prompts customizable in `config.json`. |
 | 🌐 **Web search** | For question/answer it fetches current facts from the web (DuckDuckGo, keyless) — answers accurately instead of hallucinating. |
 | 🧪 **Self-check** | Optional: complex answers are vetted by a second model (vetting) and flagged on error. Enable: `config.vetting.enabled`. |
+| ✂️ **Prompt compression** | Optional: strips politeness/fillers (Caveman-style) to save tokens. `config.compress.enabled`. |
 | 📈 **Sparkline 24h** | Hourly success in the dashboard + history filters (search by model/provider, OK/Errors). |
 | 🔌 **Compatible** | Any OpenAI client: opencode, Cursor, your scripts. |
 

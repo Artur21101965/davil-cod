@@ -108,6 +108,21 @@ const VETTING_CONFIG = Object.assign(
   (config.vetting && typeof config.vetting === 'object') ? config.vetting : {}
 );
 
+// --- Стратегия роутинга ---
+// Опциональные модификаторы равномерности (round-robin / least-used).
+// По умолчанию 'weighted' — поведение без изменений.
+const { makeWeightModifier } = require('./lib/strategy');
+const ROUTING_STRATEGY = (config.routing && config.routing.strategy) || 'weighted';
+
+// --- Сжатие промпта (Caveman-стиль) ---
+// Опционально убирает вежливость/заполнители из последнего user-сообщения,
+// экономя токены. config.compress.enabled=true включает.
+const { compressMessages } = require('./lib/compress');
+const COMPRESS_CONFIG = Object.assign(
+  { enabled: false, minLen: 60 },
+  (config.compress && typeof config.compress === 'object') ? config.compress : {}
+);
+
 // --- Веб-поиск для search-задач ---
 // Бесплатный поиск фактов (DuckDuckGo, без ключа) для запросов-поиска, чтобы
 // модель не галлюцинировала («что такое минимакс дизайн» → реальная инфа про
@@ -468,6 +483,15 @@ async function handleChatCompletion(req, res, body) {
   if (METHODOLOGY_CONFIG.enabled && Array.isArray(body.messages)) {
     try {
       taskCategory = classifyTask(body.messages);
+      // Сжатие промпта: убираем вежливость/заполнители ДО методолога (методолог
+      // не должен суммировать сжатый текст). Опционально (config.compress).
+      if (COMPRESS_CONFIG.enabled) {
+        const compressed = compressMessages(body.messages, COMPRESS_CONFIG);
+        if (compressed !== body.messages && Array.isArray(compressed)) {
+          body.messages = compressed;
+          measure.compressed = 1;
+        }
+      }
       const injected = injectMethodology(body.messages, taskCategory, METHODOLOGY_CONFIG);
       if (injected !== body.messages) {
         body.messages = injected;
@@ -617,6 +641,9 @@ async function handleChatCompletion(req, res, body) {
         .sort((a, b) => (b.provider.context_window || 0) - (a.provider.context_window || 0))
         .slice(0, 1);
     } else {
+      const usedTodayList = {};
+      for (const [k] of pool) usedTodayList[k] = usedTodayFor(k);
+      const strategyModifier = makeWeightModifier(ROUTING_STRATEGY, { keys: pool.map(([k]) => k), usedTodayList });
       const scored = pool.map(([key, provider]) => {
         const h = getHealth()[key];
         let score = h.score || 50;
@@ -649,6 +676,9 @@ async function handleChatCompletion(req, res, body) {
         const usedToday = usedTodayFor(key);
         if (dailyLimit > 0 && usedToday >= dailyLimit) weight *= 0.03;
         else if (dailyLimit > 0 && usedToday >= dailyLimit * 0.9) weight *= 0.4;
+        // Стратегия роутинга: равномерность (round-robin / least-used) как
+        // лёгкий модификатор к базовому weight — не ломает основной скоринг.
+        weight *= strategyModifier(key);
         return { key, provider, weight };
       });
 

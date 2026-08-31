@@ -28,6 +28,13 @@
     "maxChecksPerMin": 4,
     "complexityOnly": true
   },
+  "routing": {
+    "strategy": "weighted"
+  },
+  "compress": {
+    "enabled": false,
+    "minLen": 60
+  },
   "providers": {
     "or-nemotron-550b": {
       "endpoint": "https://openrouter.ai/api/v1/chat/completions",
@@ -37,6 +44,26 @@
       "keyHint": "openrouter.ai → Keys",
       "envVar": "PROVIDER_OPENROUTER_APIKEY",
       "free": true
+    },
+    "sambanova-gpt-oss-120b": {
+      "endpoint": "https://api.sambanova.ai/v1/chat/completions",
+      "model": "gpt-oss-120b",
+      "priority": 12,
+      "dailyLimit": 100000,
+      "keyHint": "cloud.sambanova.ai → API Keys",
+      "envVar": "PROVIDER_SAMBANOVA_APIKEY",
+      "free": true,
+      "category": "general"
+    },
+    "siliconflow-deepseek-r1": {
+      "endpoint": "https://api.siliconflow.com/v1/chat/completions",
+      "model": "deepseek-ai/DeepSeek-R1",
+      "priority": 12,
+      "dailyLimit": 100000,
+      "keyHint": "cloud.siliconflow.com → API Keys",
+      "envVar": "PROVIDER_SILICONFLOW_APIKEY",
+      "free": true,
+      "category": "reasoning"
     }
   }
 }
