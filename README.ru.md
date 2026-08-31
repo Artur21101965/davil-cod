@@ -241,6 +241,7 @@ PROVIDER_ZAI_APIKEY=...        # ZAI
 ```bash
 npx freegate init              # создать конфиг
 npx freegate init -i           # интерактивный мастер (ключи, пароль)
+npx freegate doctor            # диагностика: ключи, модели, «что проверить»
 npx freegate start             # запустить прокси
 npx freegate status            # диагностика: провайдеры, лимиты, ошибки
 npx freegate test              # проверить, что работает

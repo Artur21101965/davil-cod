@@ -22,6 +22,12 @@
     "timeout": 8000,
     "queryMinChars": 6
   },
+  "vetting": {
+    "enabled": false,
+    "minAnswerLen": 120,
+    "maxChecksPerMin": 4,
+    "complexityOnly": true
+  },
   "providers": {
     "or-nemotron-550b": {
       "endpoint": "https://openrouter.ai/api/v1/chat/completions",

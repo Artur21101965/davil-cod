@@ -125,6 +125,78 @@ if (cmd === 'init') {
     console.log('\nГотово! Заполни .env ключами, затем: npx freegate start');
     console.log('Совет: npx freegate init -i — интерактивный мастер с вопросами.');
   }
+} else if (cmd === 'doctor') {
+  const doctor = require(path.join(ROOT, 'lib', 'doctor'));
+  const setup = require(path.join(ROOT, 'lib', 'setup'));
+
+  console.log('\n🩺 Freegate doctor');
+  console.log('────────────────────');
+
+  const snap = doctor.snapshot();
+
+  // 1. Ключи — что задано.
+  const keyGroups = Object.values(snap.keyState);
+  const withKey = keyGroups.filter((k) => k.hasKey);
+  const noKey = keyGroups.filter((k) => !k.hasKey);
+  console.log(`Провайдеров в каталоге: ${snap.catalogCount}, групп провайдеров: ${keyGroups.length}`);
+  console.log(`Ключей задано: ${withKey.length}/${keyGroups.length}`);
+  if (withKey.length) {
+    console.log('\n✅ Ключи установлены:');
+    for (const k of withKey) {
+      const masked = k.key.slice(0, 4) + '…' + (k.key.length > 8 ? k.key.slice(-4) : '');
+      console.log(`   ${k.name.padEnd(18)} (${k.count.toString().padStart(2)} мод.)  ${masked}`);
+    }
+  }
+  if (noKey.length) {
+    console.log('\n⬜ Ключи не заданы (модели недоступны):');
+    for (const k of noKey) console.log(`   ${k.name.padEnd(18)} (${k.count.toString().padStart(2)} мод.)`);
+  }
+
+  // 2. Модели — живое.
+  const models = Object.keys(snap.models).length;
+  console.log(`\nМоделей в базе: ${models}`);
+  console.log(`   активных: ${snap.byStatus.active} · отключено: ${snap.byStatus.disabled} · неизвестно: ${snap.byStatus.unknown}`);
+  if (snap.byStatus.active === 0 && models === 0) {
+    console.log('   ⚠️ База пуста — запусти сервер, чтобы автопоиск нашёл модели.');
+  }
+
+  // 3. Рекомендации «что включить».
+  const rec = doctor.recommend(snap.models);
+  if (rec.disabledByUser.length || rec.paid.length || rec.local.length || rec.dead.length) {
+    console.log('\n🔮 Что проверить:');
+    if (rec.disabledByUser.length) console.log('   ✅ Выключенные free (можно вернуть): ' + rec.disabledByUser.join(', '));
+    if (rec.paid.length) console.log('   🟠 Платные/малый лимит (держать выключенными): ' + rec.paid.join(', '));
+    if (rec.local.length) console.log('   🏠 Локальные (слабый Mac): ' + rec.local.join(', '));
+    if (rec.dead.length) console.log('   ⚠️ Мёртвые/непроверенные (чистить): ' + rec.dead.join(', '));
+  }
+
+  // 4. Быстрый старт.
+  const easy = doctor.easyStartKey();
+  const easyHas = snap.keyState[easy.envVar] && snap.keyState[easy.envVar].hasKey;
+  if (!easyHas) {
+    console.log(`\n💡 Быстрый старт: добавь ключ ${easy.name} — сразу ${easy.count}+ бесплатных моделей.`);
+    console.log('   `npx freegate init -i` или дашборд → Настройки.');
+  } else {
+    console.log(`\n💡 Всё настроено. Запуск: npx freegate start · дашборд: http://localhost:4000`);
+  }
+
+  // Опциональная валидация ключей (медленная — по флагу).
+  if (process.argv.includes('--validate')) {
+    console.log('\n⏳ Проверяю ключи (может занять ~10с)...');
+    let n = 0;
+    (async () => {
+      for (const k of keyGroups) {
+        if (!k.hasKey) continue;
+        const r = await setup.validateKey(k.envVar, k.key);
+        n++;
+        if (r.valid) console.log(`   ✅ ${k.name}`);
+        else console.log(`   ❌ ${k.name}: ${r.error || 'неверный'}`);
+      }
+      process.exit(0);
+    })();
+  } else if (cmd === 'doctor') {
+    // (validate-ветка уже вышла через process.exit выше — здесь просто тишина)
+  }
 } else if (cmd === 'start') {
   // Spawn from the user's cwd (not package dir) so server.js picks up their
   // config.json / .env created by `init`.
@@ -200,6 +272,41 @@ WantedBy=default.target
   console.log('  ?theme=cosmic   — открыть дашборд в теме вручную');
   console.log('  Кнопка «Тема» в шапке дашборда — переключать по кругу');
   console.log('  Памятка: `--theme` не нужен, тема хранится в localStorage браузера.');
+} else if (cmd === 'connect') {
+  const onboarding = require(path.join(ROOT, 'lib', 'onboarding'));
+  const setup = require(path.join(ROOT, 'lib', 'setup'));
+  const { keys } = setup.readKeys();
+  let AUTH = keys.AUTH || process.env.AUTH || '';
+  if (!AUTH) {
+    try { AUTH = (JSON.parse(fs.readFileSync(path.join(process.cwd(), 'config.json'), 'utf8')).auth) || ''; } catch {}
+  }
+  const port = process.env.PORT || '4000';
+  const baseUrl = `http://localhost:${port}`;
+  const apiKey = AUTH || 'твой_пароль';
+
+  console.log('\n🔌 Подключить Freegate к клиенту');
+  console.log('────────────────────────────────');
+  console.log(`Base URL: ${baseUrl}/v1`);
+
+  // Определяем, какой профиль выбрать: смотрим, какие модели уже активны.
+  const doctor = require(path.join(ROOT, 'lib', 'doctor'));
+  const snap = doctor.snapshot();
+  const rec = doctor.recommend(snap.models);
+  const activeCount = snap.byStatus.active || 0;
+
+  console.log('\nВыбери профиль (подсказка по активным моделям):');
+  for (const p of onboarding.profiles()) {
+    console.log(`   ${p.id.padEnd(11)} ${p.name} — ${p.hint}`);
+  }
+  console.log('\nПрофиль не влияет на прокси — это подсказка, какую модель выбрать в клиенте.');
+
+  console.log('\n─── Cursor ───');
+  console.log(onboarding.snippetCursor(baseUrl, apiKey));
+  console.log('\n─── opencode ───');
+  console.log(onboarding.snippetOpencode(baseUrl, apiKey));
+  console.log('\n─── Cline (VS Code) ───');
+  console.log(onboarding.snippetCline(baseUrl, apiKey));
+  console.log('\nСовет: модели с категорией coding → coder, design → designer и т.д.');
 } else if (cmd === 'test') {
   const http = require('http');
   const base = `http://127.0.0.1:${process.env.PORT || 4000}`;

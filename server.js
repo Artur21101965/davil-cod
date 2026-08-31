@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { LRUCache } = require('./lib/cache');
 const { PROVIDERS, MODEL_MAP, callProvider, reloadProviders } = require('./lib/providers');
-const { loadState, initHealth, isCircuitOpen, recordSuccess, recordFailure, recordRequest, recordTokens, getHealth, getStats, getReliability, recordRecent, recordRpm, getRecent, getRpm, recordSelection, getLastSelection, getBandit, recordBandit, warmBanditPriors, getContextStats } = require('./lib/health');
+const { loadState, initHealth, isCircuitOpen, recordSuccess, recordFailure, recordRequest, recordTokens, getHealth, getStats, getReliability, recordRecent, recordRpm, getRecent, getRpm, recordSelection, getLastSelection, getBandit, recordBandit, warmBanditPriors, getContextStats, getHourly } = require('./lib/health');
 const { checkRateLimit } = require('./lib/rateLimit');
 const { handleDashboard } = require('./lib/dashboard');
 const { acquire, stats: poolStats } = require('./lib/pool');
@@ -97,6 +97,15 @@ const SEMCACHE_CONFIG = Object.assign(
 const METHODOLOGY_CONFIG = Object.assign(
   { enabled: methodEnabledByDefault(), prompts: {} },
   (config.methodology && typeof config.methodology === 'object') ? config.methodology : {}
+);
+
+// --- Самопроверка ответа второй моделью (vetting) ---
+// Опционально: после не-stream ответа отправляем краткий чек другой модели.
+// Выключено по умолчанию (жжёт 2-й free-лимит). Включается config.vetting.enabled.
+const { shouldVet, vetAnswer, VETTING_DEFAULTS } = require('./lib/vetting');
+const VETTING_CONFIG = Object.assign(
+  { ...VETTING_DEFAULTS },
+  (config.vetting && typeof config.vetting === 'object') ? config.vetting : {}
 );
 
 // --- Веб-поиск для search-задач ---
@@ -836,7 +845,7 @@ async function handleChatCompletion(req, res, body) {
                 model: provider.model,
                 choices: [{ index: 0, message: { role: 'assistant', content: full }, finish_reason: 'stop' }],
                 usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
-              });
+              }, key);
             }
             commit(200);
             res.end();
@@ -946,7 +955,7 @@ async function handleChatCompletion(req, res, body) {
               model: provider.model,
               choices: [{ index: 0, message: { role: 'assistant', content: full }, finish_reason: 'stop' }],
               usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
-            });
+            }, key);
           }
           commit(200);
           res.end();
@@ -971,8 +980,31 @@ async function handleChatCompletion(req, res, body) {
         measure.provider = key;
         measure.real = (result.data.usage && result.data.usage.prompt_tokens) ? result.data.usage.prompt_tokens : measure.sentTokens || 0;
         measure.win = PROVIDERS[key]?.context_window || 0;
+        // Самопроверка второй моделью (опционально): только не-stream, только по конфигу.
+        if (VETTING_CONFIG.enabled && !isStreaming) {
+          const answer = result.data?.choices?.[0]?.message?.content || '';
+          if (shouldVet({ config: VETTING_CONFIG, complexity, category: taskCategory, answerLen: answer.length })) {
+            const picks = Object.entries(PROVIDERS)
+              .filter(([pk, p]) => p.enabled && pk !== key && !isCircuitOpen(pk) &&
+                getHealth()[pk]?.status === 'up' && p.vision !== true)
+              .map(([_, p]) => p);
+            try {
+              const verdict = await vetAnswer({ answer, callProvider, picks, config: VETTING_CONFIG });
+              if (verdict.checked && !verdict.ok && verdict.note) {
+                const msg = result.data.choices[0].message;
+                msg.content = (msg.content || '') + '\n\n> ⚠️ Проверка второй моделью: ' + verdict.note;
+                measure.vetted = 1;
+                measure.vetNote = verdict.note;
+              } else {
+                measure.vetted = 0;
+              }
+            } catch (vetErr) {
+              measure.vetted = 0;
+            }
+          }
+        }
         commit(200);
-        cache.set(effectiveModel, body.messages, body.temperature, result.data);
+        cache.set(effectiveModel, body.messages, body.temperature, result.data, key);
         recordTokens(key, result.usage);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(result.data));
@@ -1059,7 +1091,7 @@ if (isTooShort(result.data, lastUserText(body.messages))) {
           measure.real = (result.data.usage && result.data.usage.prompt_tokens) ? result.data.usage.prompt_tokens : measure.sentTokens || 0;
           measure.win = PROVIDERS[key]?.context_window || 0;
           commit(200);
-          cache.set(effectiveModel, body.messages, body.temperature, result.data);
+          cache.set(effectiveModel, body.messages, body.temperature, result.data, key);
           recordTokens(key, result.usage);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(result.data));
@@ -1117,7 +1149,7 @@ if (isTooShort(result.data, lastUserText(body.messages))) {
                 model: provider.model,
                 choices: [{ index: 0, message: { role: 'assistant', content: full }, finish_reason: 'stop' }],
                 usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
-              });
+              }, key);
             }
             commit(200);
             res.end();
@@ -1346,6 +1378,7 @@ const server = http.createServer(async (req, res) => {
         return [k, { status: v.status, score: v.score, latency_ms: v.latency, reason, reliability }];
       })),
       cache: cache.stats(),
+      hourly: (() => { try { return getHourly(); } catch { return []; } })(),
       limits,
       pool: poolStats(),
       last_selection: getLastSelection(),

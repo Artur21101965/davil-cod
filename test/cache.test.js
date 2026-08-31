@@ -107,6 +107,32 @@ describe('LRUCache grams persistence', () => {
   });
 });
 
+describe('LRUCache provider tag', () => {
+  it('stores and returns providerKey via getProvider', () => {
+    const c = freshCache();
+    const msgs = [{ role: 'user', content: 'напиши функцию' }];
+    c.set('m1', msgs, 0, { ok: true }, 'groq-gpt');
+    assert.equal(c.getProvider('m1', msgs, 0), 'groq-gpt', 'provider key stored');
+    // Отсутствующий → null
+    assert.equal(c.getProvider('m1', [{ role: 'user', content: 'другой' }], 0), null, 'missing → null');
+  });
+
+  it('stores null providerKey when not passed', () => {
+    const c = freshCache();
+    const msgs = [{ role: 'user', content: 'x' }];
+    c.set('m2', msgs, 0, { ok: true });
+    assert.equal(c.getProvider('m2', msgs, 0), null, 'no provider → null');
+  });
+
+  it('getProvider works in-memory (persist covered by model/temperature test)', () => {
+    const c = new LRUCache(20, 60000, true, true);
+    const msgs = [{ role: 'user', content: 'голосовой тест кэша провайдера' }];
+    c.set('mp', msgs, 0.3, { ok: true }, 'or-nemotron-35');
+    assert.equal(c.getProvider('mp', msgs, 0.3), 'or-nemotron-35', 'provider tag readable');
+    c.clear();
+  });
+});
+
 // The auto-persist interval keeps the event loop alive; stop it so the
 // process can exit (same pattern as proxy.test.js).
 require('../lib/cache')._stopTimers();

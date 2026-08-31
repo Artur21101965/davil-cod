@@ -220,6 +220,7 @@ put it in `config.json` → `providers` (same format as `providers.json`).
 ```bash
 npx freegate init              # create config
 npx freegate init -i           # interactive wizard (keys, password)
+npx freegate doctor            # diagnostics: keys, models, "what to check"
 npx freegate start             # start proxy
 npx freegate status            # diagnostics: providers, limits, errors
 npx freegate test              # verify it works
