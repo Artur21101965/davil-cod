@@ -29,7 +29,7 @@ is only yours — nobody else can connect to it, and you can't to theirs. Provid
 keys live in your local `.env`, history in local files. **No third-party server
 sees your keys or conversations.**
 
-![Freegate Dashboard](assets/dashboard.gif)
+![Freegate Dashboard](assets/dashboard-en.gif)
 
 ## Features
 
@@ -49,7 +49,7 @@ sees your keys or conversations.**
 | 🌐 **Web search** | For question/answer it fetches current facts from the web (DuckDuckGo, keyless) — answers accurately instead of hallucinating. |
 | 🔌 **Compatible** | Any OpenAI client: opencode, Cursor, your scripts. |
 
-![Freegate Models base](assets/dashboard-models.png)
+![Freegate Models base](assets/dashboard-models-en.png)
 
 ## Quick start — 30 seconds
 
