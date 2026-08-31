@@ -581,8 +581,11 @@ async function handleChatCompletion(req, res, body) {
         // не исключая fallback. coding→coding, reasoning→reasoning, chat/search→general.
         const cat = provider.category || 'general';
         if (taskCategory === 'coding' && cat === 'coding') weight *= 1.5;
+        else if (taskCategory === 'design' && cat === 'coding') weight *= 1.6;
         else if (taskCategory === 'reasoning' && cat === 'reasoning') weight *= 1.5;
         else if ((taskCategory === 'chat' || taskCategory === 'search') && cat === 'general') weight *= 1.2;
+        // Дизайн — это UI-код: визуальные рекомендации идут от coding-моделей.
+        else if (taskCategory === 'design' && cat === 'reasoning') weight *= 0.4;
         // Простой факт/поиск не должен «думать вслух» на reasoning-модели:
         // это дорого по лимитам и даёт размышления вместо краткого ответа.
         if ((taskCategory === 'chat' || taskCategory === 'search') && cat === 'reasoning') weight *= 0.15;

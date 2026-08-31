@@ -238,4 +238,14 @@ describe('ContextStats.upgradedCount', () => {
     const b = cs2.snapshot().buckets.find(x => x.provider === 'x');
     assert.equal(b.tasks.coding, 1);
   });
+
+  it('tracks design task category', () => {
+    const t = Date.parse('2026-08-30T10:00:00Z');
+    const cs = new ContextStats();
+    cs.record({ ts: t, provider: 'a', taskCategory: 'design', status: 200 });
+    const b = cs.snapshot().buckets[0];
+    assert.equal(b.tasks.design, 1);
+    const s = cs.summary(t + 3600000);
+    assert.equal(s.tasks.design, 1);
+  });
 });

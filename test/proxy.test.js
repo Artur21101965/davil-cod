@@ -480,6 +480,14 @@ test('server: крутящийся пул исключает исчерпавш�
   assert.ok(/usedToday\s*>=\s*dailyLimit\)\s*weight\s*\*=\s*0\.03/.test(src), 'исчерпанные штрафуются ×0.03');
 });
 
+test('server: design-задачи бустят coding-модели', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  assert.ok(/taskCategory\s*===\s*'design'\s*&&\s*cat\s*===\s*'coding'\)\s*weight\s*\*=\s*1\.6/.test(src), 'design → coding ×1.6');
+  assert.ok(/taskCategory\s*===\s*'design'\s*&&\s*cat\s*===\s*'reasoning'\)\s*weight\s*\*=\s*0\.4/.test(src), 'design → reasoning ×0.4');
+});
+
 test('dashboard: карточка экономии + сохранение _savings', () => {
   const fs = require('fs');
   const path = require('path');

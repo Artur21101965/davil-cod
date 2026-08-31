@@ -45,7 +45,7 @@ sees your keys or conversations.**
 | 🛡️ **Reliability** | Circuit breaker, request queue, auto-disable of dead providers, watchdog. |
 | 📊 **Dashboard** | Status, speed, limits, history, tokens, RPM chart, savings ($). RU/EN. |
 | 💾 **Disk cache** | Repeat prompts don't consume limits at all. |
-| 🎓 **Methodologist** | Agent answers like an engineer: plan→test→code (coding), stepwise (reasoning). Prompts customizable in `config.json`. |
+| 🎓 **Methodologist** | Agent answers like an engineer: plan→test→code (coding), stepwise (reasoning), like a frontend designer (design). Prompts customizable in `config.json`. |
 | 🔌 **Compatible** | Any OpenAI client: opencode, Cursor, your scripts. |
 
 ![Freegate Models base](assets/dashboard-models.png)
@@ -134,11 +134,12 @@ to watch for new releases. The model manager runs every 6 hours.
 
 ### Methodologist (Productive Agent Layer)
 
-Freegate classifies the task (coding / reasoning / search / chat) and injects a
+Freegate classifies the task (coding / design / reasoning / search / chat) and injects a
 short system-prompt methodologist **without any client-side changes**. Any
 OpenAI-compatible client (opencode, Cursor, chat) gets engineer-grade answers:
 
 - **coding** — brief plan before code, a suggested test, where to verify.
+- **design** — bold aesthetic idea, distinctive fonts, cohesive palette via CSS variables, choreographed motion, responsive. Inspired by Anthropic `frontend-design`.
 - **reasoning** — reason stepwise, show assumptions.
 - **search** — short factual answer, don't invent sources.
 - **chat** — to the point, concise.

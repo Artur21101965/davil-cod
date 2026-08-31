@@ -39,6 +39,7 @@
 - **Категория minimax-m3**: `or-minimax-m3-free` была `vision` (ложная классификация из старого автопоиска, 'multimodal' в описании OpenRouter) — исправлено на `general`. Иначе методолог/роутинг штрафовали основную рабочую лошадку tier-splus/tier-l/Best.
 - **Простая задача ≠ reasoning-модель** (30.08): при `taskCategory`=chat/search weighted-selection штрафует reasoning ×0.15 и vision ×0.3 — простой факт/поиск идёт на быстрые general, а не «думает вслух» на дорогих reasoning-моделях. E2E: «столица Франции» на tier-s → «Париж» за 0.46с.
 - **Поисковая категория** (30.08): SEARCH_PREFIX_RE (`что (такое/значит/означает)|расскажи|объясни|как|где|кто|найди`) ловится ДО reasoning — «что означает X» больше не уходит в «рассуждай пошагово». Расширены SEARCH_HINTS («как работает», «расскажи про»). Категория search теперь наполняется, а не всегда 0.
+- **Frontend Designer (design)** (31.08): категория `design` в taskclassify (DESIGN_HINTS/DESIGN_UI_RE/DESIGN_TECH_RE — лендинги, вёрстка, UI/UX, компоненты, Tailwind/CSS/React) + методолог-дизайнер в methodology.js (по мотивам Anthropic `frontend-design`, Apache-2.0). Роутинг: design→coding ×1.6, →reasoning ×0.4. Метрика `tasks.design` в contextstats + цвет в дашборде. Включено по умолчанию. Полный скилл для opencode: плагин `@sentiolabs/opencode-frontend-design` подключён в `~/.config/opencode/opencode.jsonc`.
 
 ## Тесты
 - 255 тестов: `node --test test/*.test.js` (proxy, clean, compactor, memory, memory-store, vision, dashboard, semcache, contextstats, taskclassify, methodology, modeldb, modelscan, modelmanager)

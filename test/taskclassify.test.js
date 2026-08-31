@@ -48,7 +48,7 @@ describe('taskclassify.classify', () => {
     loadFresh();
     const msgs = [
       { role: 'user', content: 'привет' },
-      { role: 'user', content: 'напиши верстку на css' },
+      { role: 'user', content: 'напиши функцию сортировки на js' },
     ];
     assert.equal(classify.classify(msgs), 'coding');
   });
@@ -96,5 +96,14 @@ describe('taskclassify.classify', () => {
     assert.equal(classify.classify([{ role: 'user', content: 'как настроить nginx' }]), 'search');
     assert.equal(classify.classify([{ role: 'user', content: 'что означает аннотация в java' }]), 'search', 'объяснение термина не reasoning');
     assert.equal(classify.classify([{ role: 'user', content: 'найди библиотеку для парсинга' }]), 'search');
+  });
+
+  it('classifies frontend design tasks as design', () => {
+    loadFresh();
+    assert.equal(classify.classify([{ role: 'user', content: 'сверстай лендинг для кофейни' }]), 'design');
+    assert.equal(classify.classify([{ role: 'user', content: 'сделай красивую карточку товара' }]), 'design');
+    assert.equal(classify.classify([{ role: 'user', content: 'создай страницу профиля с тёмной темой и адаптивом' }]), 'design');
+    assert.equal(classify.classify([{ role: 'user', content: 'нарисуй интерфейс дашборда с анимациями' }]), 'design');
+    assert.equal(classify.classify([{ role: 'user', content: 'сверстай hero-секцию на Tailwind' }]), 'design');
   });
 });
