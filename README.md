@@ -145,6 +145,11 @@ OpenAI-compatible client (opencode, Cursor, chat) gets engineer-grade answers:
 - **search** — short factual answer, don't invent sources.
 - **chat** — to the point, concise.
 
+A shared **"don't give up"** block is prepended to every category: if the model
+can't find a tool/file/skill where it expected one, it doesn't refuse — it looks
+for a workaround (reads files directly, checks node_modules, tries alternatives).
+This makes free models act resourcefully instead of ending with "I can't".
+
 The task category also nudges routing toward matching provider categories
 (`coding`→coding models, `reasoning`→reasoning models) without dropping fallback.
 Category distribution is visible on the dashboard and via

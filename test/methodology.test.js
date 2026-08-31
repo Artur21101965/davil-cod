@@ -86,4 +86,13 @@ describe('methodology', () => {
     const sysMsg = result.find(m => m.role === 'system');
     assert.ok(sysMsg.content.includes('КАСТОМ КОД'), 'custom prompt injected');
   });
+
+  it('injectMethodology always attaches «не сдавайся» behavior, even with custom prompt', () => {
+    loadFresh();
+    const messages = [{ role: 'user', content: 'найди скилл' }];
+    const result = methodology.injectMethodology(messages, 'design', { enabled: true, prompts: { design: 'ТОЛЬКО КАСТОМ' } });
+    const sysMsg = result.find(m => m.role === 'system');
+    assert.ok(sysMsg.content.includes('не сдавайся'), 'behavior block attached');
+    assert.ok(sysMsg.content.includes('обходной путь'), 'behavior mentions workaround');
+  });
 });
