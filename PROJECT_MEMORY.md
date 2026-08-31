@@ -66,6 +66,10 @@
 - **Чистка бренда**: label launchd `com.davilcod.proxy`→`com.freegate.proxy`; тестовый tmp `davil-init-`→`freegate-init-`; титл дашборда уже «Freegate». DAVIL Cod остался только в исторических логах (gitignored).
 - **Удалена дублирующая launchd-служба** `com.davilcod.model-manager` (каждые 6ч запускала scripts/auto-manage-models.js parallel со встроенным ModelManager → двойной спам проб → перерасход лимитов). Теперь только встроенный планировщик в server.js.
 
+## Доработка 31.08 (кэш/проверка/аналитика)
+- **Кэш**: TTL 1ч→24ч (повторы агентов/ретраи кэшируются на сутки, экономят free-лимиты). Механизм исправен: hits растут, cache.json persist пишется.
+- **Аналитика тиров**: сегодня нагрузка сбалансирована — mistral-codestral 80% (быстрая general), reasoning почти не юзается. `or-ox-alpha` 603 all-time — исторический артефакт старого маппинга (488 25.08), сегодня 0. Лимиты (minimax/dots-3) держатся на 2% — крутящийся пул оставляет запас.
+- **Счётчик ошибок** `today` сбрасывается по дню (reliability); утренние 429 до фикса накапливаются, после — не растут (проверено 8/8).
 
 ## Публикация
 - npm: `npm version patch && npm publish` (ключ в ~/.npmrc, bypass 2FA)
