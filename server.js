@@ -1253,6 +1253,57 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (parsedUrl.pathname === '/v1/config') {
+    // Чтение/запись опций оптимизации (compress/vetting/routing) в config.json.
+    if (AUTH_KEY) {
+      const apiKey = (req.headers.authorization || '').replace('Bearer ', '').trim();
+      const keyFromQuery = parsedUrl.searchParams.get('key');
+      if (apiKey !== AUTH_KEY && keyFromQuery !== AUTH_KEY) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'Invalid API key' } }));
+        return;
+      }
+    }
+    try {
+      const userCfg = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+      if (req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          compress: { enabled: !!(userCfg.compress && userCfg.compress.enabled), minLen: userCfg.compress?.minLen || 60 },
+          vetting: { enabled: !!(userCfg.vetting && userCfg.vetting.enabled), minAnswerLen: userCfg.vetting?.minAnswerLen || 120, complexityOnly: userCfg.vetting?.complexityOnly !== false },
+          routing: { strategy: userCfg.routing?.strategy || 'weighted' },
+        }));
+        return;
+      }
+      if (req.method === 'POST') {
+        let body = '';
+        req.on('data', (c) => { body += c; if (body.length > 100000) req.destroy(); });
+        req.on('end', () => {
+          try {
+            const patch = JSON.parse(body || '{}');
+            if (typeof patch.compress === 'object') userCfg.compress = Object.assign({ enabled: false, minLen: 60 }, userCfg.compress, patch.compress);
+            if (typeof patch.vetting === 'object') userCfg.vetting = Object.assign({ enabled: false, minAnswerLen: 120, complexityOnly: true }, userCfg.vetting, patch.vetting);
+            if (typeof patch.routing === 'object') userCfg.routing = Object.assign({ strategy: 'weighted' }, userCfg.routing, patch.routing);
+            fs.writeFileSync(CONFIG_PATH, JSON.stringify(userCfg, null, 2));
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true }));
+          } catch (e) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: { message: 'Invalid config body: ' + e.message } }));
+          }
+        });
+        return;
+      }
+      res.writeHead(405, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Method not allowed' } }));
+      return;
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Config read failed: ' + err.message } }));
+      return;
+    }
+  }
+
   if (parsedUrl.pathname === '/v1/models-db' && req.method === 'GET') {
     // Структурированная база моделей: паспорта + статистика + топ по скору.
     if (AUTH_KEY) {

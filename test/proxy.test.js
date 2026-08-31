@@ -345,6 +345,22 @@ test('dashboard: renders context block', () => {
   assert.ok(html.includes('sum.tasks') && html.includes('taskTotal'), 'renderContext читает категории задач');
 });
 
+test('dashboard: optimization options (compress/vetting/routing) + /v1/config', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'lib', 'dashboard.js'), 'utf8');
+  // Переключатели Опции оптимизации
+  assert.ok(html.includes('optBlock'), 'блок опций');
+  assert.ok(html.includes('optCompress'), 'переключатель сжатия');
+  assert.ok(html.includes('optVetting'), 'переключатель самопроверки');
+  assert.ok(html.includes('optRouting'), 'селект стратегии');
+  assert.ok(html.includes('optCompressDesc'), 'объяснение сжатия');
+  assert.ok(html.includes('loadOpts') && html.includes('saveOpts'), 'загрузка/сохранение опций');
+  // Эндпоинт в server.js
+  const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  assert.ok(server.includes("'/v1/config'"), 'эндпоинт /v1/config существует');
+});
+
 test('dashboard: redesigned frame (KPI + tabs + sortable tables)', () => {
   const fs = require('fs');
   const path = require('path');

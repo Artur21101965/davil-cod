@@ -280,3 +280,36 @@ describe('isAutoAddable', () => {
     assert.equal(isAutoAddable({ model: 'weird/unknown-xl', source: 'nim' }), false);
   });
 });
+
+describe('inferSource', () => {
+  let inferSource;
+  beforeEach(() => {
+    ({ inferSource } = require('../lib/modelmanager'));
+  });
+
+  it('maps new providers by envVar', () => {
+    assert.equal(inferSource({ envVar: 'PROVIDER_SAMBANOVA_APIKEY' }), 'sambanova');
+    assert.equal(inferSource({ envVar: 'PROVIDER_SILICONFLOW_APIKEY' }), 'siliconflow');
+    assert.equal(inferSource({ envVar: 'PROVIDER_DEEPINFRA_APIKEY' }), 'deepinfra');
+    assert.equal(inferSource({ envVar: 'PROVIDER_HYPERBOLIC_APIKEY' }), 'hyperbolic');
+    assert.equal(inferSource({ envVar: 'PROVIDER_COHERE_APIKEY' }), 'cohere');
+    assert.equal(inferSource({ envVar: 'PROVIDER_LLM7_APIKEY' }), 'llm7');
+    assert.equal(inferSource({ envVar: 'PROVIDER_NARA_APIKEY' }), 'nara');
+  });
+
+  it('maps new providers by endpoint', () => {
+    assert.equal(inferSource({ endpoint: 'https://api.sambanova.ai/v1/chat/completions' }), 'sambanova');
+    assert.equal(inferSource({ endpoint: 'https://api.siliconflow.com/v1/chat/completions' }), 'siliconflow');
+    assert.equal(inferSource({ endpoint: 'https://api.deepinfra.com/v1/openai/chat/completions' }), 'deepinfra');
+    assert.equal(inferSource({ endpoint: 'https://api.hyperbolic.xyz/v1/chat/completions' }), 'hyperbolic');
+  });
+
+  it('keeps legacy sources', () => {
+    assert.equal(inferSource({ endpoint: 'https://api.groq.com/openai/v1/chat/completions' }), 'groq');
+    assert.equal(inferSource({ envVar: 'PROVIDER_OPENROUTER_APIKEY' }), 'openrouter');
+  });
+
+  it('falls back to unknown', () => {
+    assert.equal(inferSource({ endpoint: 'https://something.else/v1' }), 'unknown');
+  });
+});
