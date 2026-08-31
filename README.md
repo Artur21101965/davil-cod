@@ -47,6 +47,8 @@ sees your keys or conversations.**
 | 💾 **Disk cache** | Repeat prompts don't consume limits at all. |
 | 🎓 **Methodologist** | Agent answers like an engineer: plan→test→code (coding), stepwise (reasoning), like a frontend designer (design). Prompts customizable in `config.json`. |
 | 🌐 **Web search** | For question/answer it fetches current facts from the web (DuckDuckGo, keyless) — answers accurately instead of hallucinating. |
+| 🧪 **Self-check** | Optional: complex answers are vetted by a second model (vetting) and flagged on error. Enable: `config.vetting.enabled`. |
+| 📈 **Sparkline 24h** | Hourly success in the dashboard + history filters (search by model/provider, OK/Errors). |
 | 🔌 **Compatible** | Any OpenAI client: opencode, Cursor, your scripts. |
 
 ![Freegate Models base](assets/dashboard-models-en.png)
