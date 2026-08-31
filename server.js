@@ -42,7 +42,10 @@ const warmed = warmBanditPriors(
 );
 if (warmed > 0) logger.info('Warmed bandit priors', { warmed });
 
-const cache = new LRUCache(500, 3600000, false, true); // 4th arg: semantic normalize ON
+// Диск-кэш: повторы промптов не жгут free-лимиты. TTL 24ч (чаты/агенты часто
+// переотправляют одинаковые запросы — ретраи, повторные вопросы; дневной кэш
+// снимает лишнюю нагрузку). Семантический normalize ON (4-й арг).
+const cache = new LRUCache(500, 24 * 3600 * 1000, false, true);
 require('./lib/cache')._activeCache = cache;
 
 // Load config (with fallback so a corrupt config never crashes the server)
