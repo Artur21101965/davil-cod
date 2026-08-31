@@ -9,6 +9,7 @@ const { checkRateLimit } = require('./lib/rateLimit');
 const { handleDashboard } = require('./lib/dashboard');
 const { acquire, stats: poolStats } = require('./lib/pool');
 const { aggregateSavings } = require('./lib/economics');
+const websearch = require('./lib/websearch');
 const { stripThink, cleanDelta, cleanMessage, fixReasoningMessage, isTooShort, MIN_ANSWER_LEN } = require('./lib/clean');
 const { classifyComplexity, maybeUpgradeTier, classifyVisionComplexity, needsWindowUpgrade } = require('./lib/routing');
 const { bucket, pick: banditPick, isTransientLimit } = require('./lib/bandit');
@@ -96,6 +97,15 @@ const SEMCACHE_CONFIG = Object.assign(
 const METHODOLOGY_CONFIG = Object.assign(
   { enabled: methodEnabledByDefault(), prompts: {} },
   (config.methodology && typeof config.methodology === 'object') ? config.methodology : {}
+);
+
+// --- Веб-поиск для search-задач ---
+// Бесплатный поиск фактов (DuckDuckGo, без ключа) для запросов-поиска, чтобы
+// модель не галлюцинировала («что такое минимакс дизайн» → реальная инфа про
+// MiniMax, а не «минимализм»). Только для search-задач. Сбои не ломают запрос.
+const WEBSEARCH_CONFIG = Object.assign(
+  { enabled: true, limit: 5, timeout: 8000, queryMinChars: 6 },
+  (config.websearch && typeof config.websearch === 'object') ? config.websearch : {}
 );
 
 // --- Самообновляющаяся база моделей (Model Discovery Engine) ---
@@ -459,6 +469,35 @@ async function handleChatCompletion(req, res, body) {
     }
   }
 
+  // --- Веб-поиск для search-задач ---
+  // Нашли факты из интернета (DuckDuckGo, без ключа) и подмешали как контекст,
+  // чтобы модель отвечала по существу, а не галлюцинировала. Только search.
+  // Любой сбой (нет сети/таймаут/пусто) = просто пропускаем, запрос идёт как есть.
+  let searchContext = '';
+  if (WEBSEARCH_CONFIG.enabled && (taskCategory === 'search' || taskCategory === 'chat')) {
+    try {
+      const userTexts = (body.messages || [])
+        .filter(m => m && m.role === 'user' && typeof m.content === 'string')
+        .map(m => m.content.trim());
+      const query = userTexts[userTexts.length - 1] || '';
+      if (query.length >= WEBSEARCH_CONFIG.queryMinChars) {
+        const results = await websearch.search(query, {
+          fetchImpl: (url, opts) => fetch(url, opts),
+          limit: WEBSEARCH_CONFIG.limit,
+          timeout: WEBSEARCH_CONFIG.timeout,
+        });
+        if (results.length > 0) {
+          searchContext = websearch.toContext(results, query);
+          measure.websearch = true;
+          body.messages.push({ role: 'system', content: searchContext });
+          logger.info('Websearch', { query: query.slice(0, 80), results: results.length });
+        }
+      }
+    } catch (err) {
+      logger.error('Websearch error', { message: err.message });
+    }
+  }
+
   // Replays a previously cached completion (exact or semantic hit), preserving
   // the stream/non-stream shape the client asked for.
   function serveCached(res, cached, isStreaming) {
@@ -590,6 +629,10 @@ async function handleChatCompletion(req, res, body) {
         // это дорого по лимитам и даёт размышления вместо краткого ответа.
         if ((taskCategory === 'chat' || taskCategory === 'search') && cat === 'reasoning') weight *= 0.15;
         else if ((taskCategory === 'chat' || taskCategory === 'search') && cat === 'vision') weight *= 0.3;
+        // Поиск фактов — не кодинг-задача: codestral (coding) на вопросе
+        // «что такое минимакс дизайн» выдаёт рассуждение про «минимализм».
+        // Отдаём search на general-модели (minimax/small), а не на кодеров.
+        if (taskCategory === 'search' && cat === 'coding') weight *= 0.3;
         const dailyLimit = provider.dailyLimit || 0;
         // Провайдер, исчерпавший дневной лимит (попал в пул лишь как крайний
         // резерв, когда живы все выгорели), — сильно штрафуем, чтобы выбрать
@@ -640,13 +683,19 @@ async function handleChatCompletion(req, res, body) {
     const tLimit = (getStats().dailyUsage?.[targetProviderKey]?.[today]) || 0;
     const tCap = PROVIDERS[targetProviderKey].dailyLimit || 0;
     const targetBurned = tHealth?.status === 'ratelimited' || (tCap > 0 && tLimit >= tCap * 0.9);
-    if (!targetBurned) {
+    // Кодинг-target (codestral) не подходит для поиска фактов: на вопросе
+    // «что такое минимакс дизайн» он отвечает «минимализм», а не про нейросеть.
+    // Для search/chat-задач НЕ ставим кодинг-модель первой — пусть выберётся
+    // general-модель (minimax/small), которая отвечает по существу.
+    const targetIsCoding = (PROVIDERS[targetProviderKey].category || '') === 'coding';
+    const targetMismatch = (taskCategory === 'search' || taskCategory === 'chat') && targetIsCoding;
+    if (!targetBurned && !targetMismatch) {
       enabledProviders = [
         [targetProviderKey, PROVIDERS[targetProviderKey]],
         ...enabledProviders.filter(([k]) => k !== targetProviderKey),
       ];
     } else {
-      logger.info('Target-first skip', { key: targetProviderKey, status: tHealth?.status, used: tLimit, cap: tCap });
+      logger.info('Target-first skip', { key: targetProviderKey, status: tHealth?.status, used: tLimit, cap: tCap, mismatch: targetMismatch });
     }
   }
 

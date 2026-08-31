@@ -46,6 +46,7 @@ sees your keys or conversations.**
 | 📊 **Dashboard** | Status, speed, limits, history, tokens, RPM chart, savings ($). RU/EN. |
 | 💾 **Disk cache** | Repeat prompts don't consume limits at all. |
 | 🎓 **Methodologist** | Agent answers like an engineer: plan→test→code (coding), stepwise (reasoning), like a frontend designer (design). Prompts customizable in `config.json`. |
+| 🌐 **Web search** | For question/answer it fetches current facts from the web (DuckDuckGo, keyless) — answers accurately instead of hallucinating. |
 | 🔌 **Compatible** | Any OpenAI client: opencode, Cursor, your scripts. |
 
 ![Freegate Models base](assets/dashboard-models.png)

@@ -106,4 +106,11 @@ describe('taskclassify.classify', () => {
     assert.equal(classify.classify([{ role: 'user', content: 'нарисуй интерфейс дашборда с анимациями' }]), 'design');
     assert.equal(classify.classify([{ role: 'user', content: 'сверстай hero-секцию на Tailwind' }]), 'design');
   });
+
+  it('classifies QUESTIONS about design as search (not design)', () => {
+    loadFresh();
+    assert.equal(classify.classify([{ role: 'user', content: 'что ты знаешь про минимакс дизайн. найди инфу' }]), 'search');
+    assert.equal(classify.classify([{ role: 'user', content: 'расскажи про минимакс дизайн' }]), 'search');
+    assert.equal(classify.classify([{ role: 'user', content: 'что такое минимакс дизайн' }]), 'search', 'кириллица после триггера — без \\b');
+  });
 });

@@ -442,7 +442,31 @@ test('server: target-first пропускается при выгоревшем 
   assert.ok(src.includes('targetBurned'), 'условие выгоревшего target');
   assert.ok(/targetBurned\s*=\s*tHealth\?\.status\s*===\s*'ratelimited'/.test(src), 'проверяет ratelimited');
   assert.ok(/tCap\s*>\s*0\s*&&\s*tLimit\s*>=\s*tCap\s*\*\s*0\.9/.test(src), 'проверяет лимит >=90%');
-  assert.ok(/if \(!targetBurned\)\s*\{/.test(src), 'target-first только если не выгорел');
+  assert.ok(/if \(!targetBurned\s*&&\s*!targetMismatch\)\s*\{/.test(src), 'target-first только если не выгорел и target подходит');
+});
+
+test('server: search/chat не ставят кодинг-target первым (codestral идёт на general)', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  assert.ok(src.includes('targetIsCoding'), 'определяет кодинг-target');
+  assert.ok(/targetMismatch\s*=\s*\(taskCategory\s*===\s*'search'\s*\|\|\s*taskCategory\s*===\s*'chat'\)\s*&&\s*targetIsCoding/.test(src), 'mismatch для search/chat + coding');
+  assert.ok(/if \(!targetBurned\s*&&\s*!targetMismatch\)/.test(src), 'target-first пропускается при mismatch');
+});
+
+test('server: веб-поиск для search-задач (websearch + websearch.toContext)', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  const mod = fs.readFileSync(path.join(__dirname, '..', 'lib', 'websearch.js'), 'utf8');
+  assert.ok(src.includes("require('./lib/websearch')"), 'импорт websearch в server');
+  assert.ok(/WEBSEARCH_CONFIG/.test(src), 'конфиг websearch');
+  assert.ok(/taskCategory\s*===\s*'search'\s*\|\|\s*taskCategory\s*===\s*'chat'/.test(src), 'поиск для search/chat');
+  assert.ok(src.includes('websearch.search('), 'вызов поиска');
+  assert.ok(src.includes('websearch.toContext'), 'сборка контекста');
+  assert.ok(/body\.messages\.push\(\{ role: 'system', content: searchContext \}\)/.test(src), 'вставка контекста в сообщения');
+  assert.ok(mod.includes('parseDdg'), 'websearch: парсер DDG');
+  assert.ok(mod.includes('decodeUrl'), 'websearch: разбор obfuscated URL');
 });
 
 test('server: /v1/stats отдаёт экономию (savings) против платных API', () => {
@@ -486,6 +510,13 @@ test('server: design-задачи бустят coding-модели', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
   assert.ok(/taskCategory\s*===\s*'design'\s*&&\s*cat\s*===\s*'coding'\)\s*weight\s*\*=\s*1\.6/.test(src), 'design → coding ×1.6');
   assert.ok(/taskCategory\s*===\s*'design'\s*&&\s*cat\s*===\s*'reasoning'\)\s*weight\s*\*=\s*0\.4/.test(src), 'design → reasoning ×0.4');
+});
+
+test('server: search-задачи исключают кодинг-модели (codestral не ответит «минимализм»)', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  assert.ok(/taskCategory\s*===\s*'search'\s*&&\s*cat\s*===\s*'coding'\)\s*weight\s*\*=\s*0\.3/.test(src), 'search → coding ×0.3');
 });
 
 test('dashboard: карточка экономии + сохранение _savings', () => {

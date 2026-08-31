@@ -16,6 +16,12 @@
       "reasoning": "Рассуждай пошагово, показывай допущения, затем вывод."
     }
   },
+  "websearch": {
+    "enabled": true,
+    "limit": 5,
+    "timeout": 8000,
+    "queryMinChars": 6
+  },
   "providers": {
     "or-nemotron-550b": {
       "endpoint": "https://openrouter.ai/api/v1/chat/completions",
