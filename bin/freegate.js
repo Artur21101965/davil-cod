@@ -185,6 +185,21 @@ WantedBy=default.target
   }
 } else if (cmd === 'dashboard') {
   console.log('Открой http://localhost:4000/ (запусти start сначала)');
+} else if (cmd === 'themes') {
+  console.log('🎨 Темы дашборда Freegate');
+  console.log('-----------------------------');
+  const themes = [
+    ['poly', 'PolyCopy — тёмный, фиолетовый акцент (по умолчанию)'],
+    ['warm', 'Тёплый — янтарный, уютный ламповый'],
+    ['cosmic', 'Космос — глубокий синий, мягкий голубой'],
+    ['paper', 'Бумага — светлый, инженерный чертёж'],
+  ];
+  for (const [id, desc] of themes) console.log('  ' + id.padEnd(8) + desc);
+  console.log('-----------------------------');
+  console.log('Как включить:');
+  console.log('  ?theme=cosmic   — открыть дашборд в теме вручную');
+  console.log('  Кнопка «Тема» в шапке дашборда — переключать по кругу');
+  console.log('  Памятка: `--theme` не нужен, тема хранится в localStorage браузера.');
 } else if (cmd === 'test') {
   const http = require('http');
   const base = `http://127.0.0.1:${process.env.PORT || 4000}`;

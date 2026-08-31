@@ -43,7 +43,7 @@ sees your keys or conversations.**
 | 💰 **Free** | Free models only. The dashboard shows each provider's remaining limit. |
 | ⚡ **Smart routing** | Picks the fastest, most stable provider for every request. |
 | 🛡️ **Reliability** | Circuit breaker, request queue, auto-disable of dead providers, watchdog. |
-| 📊 **Dashboard** | Status, speed, limits, history, tokens, RPM chart, savings ($). RU/EN. |
+| 📊 **Dashboard** | Status, speed, limits, history, tokens, RPM chart, savings ($). RU/EN. **4 themes** (PolyCopy/Warm/Cosmic/Paper) — switcher in the header. |
 | 💾 **Disk cache** | Repeat prompts don't consume limits at all. |
 | 🎓 **Methodologist** | Agent answers like an engineer: plan→test→code (coding), stepwise (reasoning), like a frontend designer (design). Prompts customizable in `config.json`. |
 | 🌐 **Web search** | For question/answer it fetches current facts from the web (DuckDuckGo, keyless) — answers accurately instead of hallucinating. |

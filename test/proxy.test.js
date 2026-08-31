@@ -358,6 +358,16 @@ test('dashboard: redesigned frame (KPI + tabs + sortable tables)', () => {
   assert.ok(html.includes("showTab('models')"), 'таб Модели');
   assert.ok(html.includes("showTab('context')"), 'таб Контекст');
   assert.ok(html.includes("showTab('setup')"), 'таб Настройки');
+  // Мульти-темы
+  assert.ok(html.includes('data-theme="warm"') && html.includes('data-theme="paper"'), 'темы warm/paper');
+  assert.ok(html.includes('function cycleTheme') && html.includes('themeBtn'), 'переключатель темы');
+  assert.ok(html.includes("fg_theme"), 'тема сохраняется в localStorage');
+  // Табы: 5 разделов
+  assert.ok(html.includes("showTab('overview')"), 'таб Обзор');
+  assert.ok(html.includes("showTab('providers')"), 'таб Провайдеры');
+  assert.ok(html.includes("showTab('models')"), 'таб Модели');
+  assert.ok(html.includes("showTab('context')"), 'таб Контекст');
+  assert.ok(html.includes("showTab('setup')"), 'таб Настройки');
   // Провайдеры: таблица с фильтрами/поиском/сортировкой
   assert.ok(html.includes('renderProvidersTable'), 'таблица провайдеров');
   assert.ok(html.includes('providerSearch'), 'поиск провайдеров');
