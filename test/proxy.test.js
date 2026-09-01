@@ -502,6 +502,16 @@ test('server: preferred free↔paid routing (config.routing.preference)', () => 
   assert.ok(/weight\s*\*=\s*0\.1/.test(src), 'paid-fallback дебустит платных, пока живые');
 });
 
+test('server: анти-замирание — провайдеры с многими ошибками исключаются из пула', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  assert.ok(src.includes('ERROR_POOL_THRESHOLD'), 'порог ошибок');
+  assert.ok(src.includes('getStats().errors'), 'читает ошибки за день');
+  assert.ok(/lowErrorProviders\s*=\s*healthyProviders\.filter/.test(src), 'фильтрует высокоошибочные');
+  assert.ok(/lowErrorProviders\.length\s*>\s*0\s*\?\s*lowErrorProviders\s*:\s*healthyProviders/.test(src), 'fallback при пустом пуле');
+});
+
 test('server: веб-поиск для search-задач (websearch + websearch.toContext)', () => {
   const fs = require('fs');
   const path = require('path');

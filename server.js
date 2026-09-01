@@ -595,6 +595,17 @@ async function handleChatCompletion(req, res, body) {
     .filter(([_, p]) => p.enabled && !isCircuitOpen(p.key) && p.vision !== true &&
       (getHealth()[p.key]?.status === 'up' || getHealth()[p.key]?.status === 'ratelimited'));
 
+  // Анти-«замирание»: провайдер, накопивший много ошибок сегодня (status остаётся
+  // 'up' — это не 429/401, а флап/долгие таймауты), по-прежнему попадает в цепочку
+  // и тормозит ответ. Исключаем его из активного пула до конца дня. Если так пул
+  // пустеет (все «ошибочные») — вернём их как крайний резерв, чтобы не отдать 503.
+  const todayErrors = getStats().errors || {};
+  const ERROR_POOL_THRESHOLD = 15;
+  const lowErrorProviders = healthyProviders.filter(
+    ([k]) => (todayErrors[k] || 0) < ERROR_POOL_THRESHOLD
+  );
+  const healthy2 = lowErrorProviders.length > 0 ? lowErrorProviders : healthyProviders;
+
   // Window-aware routing: estimate the request size and only consider providers
   // whose context window can actually hold it. This stops large requests from
   // burning time falling through lfm (65k) / groq (131k) providers that reject
@@ -603,10 +614,10 @@ async function handleChatCompletion(req, res, body) {
   // requests keep the full fast pool.
   const requestTokens = estimateTokens(body.messages);
   const MIN_WINDOW = 50000; // below this we don't filter (typical requests)
-  let windowPool = healthyProviders;
+  let windowPool = healthy2;
   let upgradeNoCapable = false; // апгрейд, но ни один здоровый провайдер не держит запрос
   if (requestTokens > MIN_WINDOW || windowUpgraded) {
-    const capable = healthyProviders.filter(([_, p]) => {
+    const capable = healthy2.filter(([_, p]) => {
       const win = p.context_window || 0;
       // Unknown/0 window providers are kept (heuristic) — better to try than drop.
       return win === 0 || win >= requestTokens;
