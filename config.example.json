@@ -29,11 +29,16 @@
     "complexityOnly": true
   },
   "routing": {
-    "strategy": "weighted"
+    "strategy": "weighted",
+    "preference": "free-first"
   },
   "compress": {
     "enabled": false,
     "minLen": 60
+  },
+  "autoUpdate": {
+    "enabled": false,
+    "intervalHours": 12
   },
   "providers": {
     "or-nemotron-550b": {

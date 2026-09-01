@@ -70,6 +70,7 @@ function getArg(name, defaultVal) {
 const PORT = parseInt(process.env.PORT || getArg('port', config.port || '4000'));
 const AUTH_KEY = process.env.AUTH || getArg('auth', config.auth || '');
 const RATE_LIMIT = config.rateLimit || { maxRequests: 100, windowMs: 60000 };
+const VERSION = (() => { try { return require('./package.json').version; } catch { return 'dev'; } })();
 
 // --- Долговременная память (vector memory) ---
 // По умолчанию включена: факты берутся побочно от компакции (без лишних вызовов
@@ -113,6 +114,12 @@ const VETTING_CONFIG = Object.assign(
 // По умолчанию 'weighted' — поведение без изменений.
 const { makeWeightModifier } = require('./lib/strategy');
 const ROUTING_STRATEGY = (config.routing && config.routing.strategy) || 'weighted';
+// Предпочтение free↔paid. Пользователь задаёт свои платные ключи (.env) и
+// выбирает, как их использовать рядом с бесплатной базой:
+//   free-first   — free в приоритете, paid только как запас (default).
+//   paid-first   — свои paid в приоритете, free как запас.
+//   paid-fallback— free по умолчанию, paid трогаем только если free упали.
+const ROUTING_PREFERENCE = (config.routing && config.routing.preference) || 'free-first';
 
 // --- Сжатие промпта (Caveman-стиль) ---
 // Опционально убирает вежливость/заполнители из последнего user-сообщения,
@@ -153,6 +160,8 @@ const MODEL_MANAGER_CONFIG = Object.assign(
   {},
   (config.modelManager && typeof config.modelManager === 'object') ? config.modelManager : {}
 );
+const autoUpdate = require('./lib/autoupdate');
+const AUTO_UPDATE = (config.autoUpdate && typeof config.autoUpdate === 'object') ? config.autoUpdate : {};
 const modelManager = new ModelManager({
   dbPath: path.join(__dirname, 'models-db.json'),
   catalogPath: path.join(__dirname, 'providers.json'),
@@ -676,6 +685,16 @@ async function handleChatCompletion(req, res, body) {
         const usedToday = usedTodayFor(key);
         if (dailyLimit > 0 && usedToday >= dailyLimit) weight *= 0.03;
         else if (dailyLimit > 0 && usedToday >= dailyLimit * 0.9) weight *= 0.4;
+        // Предпочтение free↔paid (config.routing.preference). Провайдер «платный»,
+        // если только у него есть ключ и он не помечен как free — free-first
+        // оставляет как есть (weight 1), paid-first бустит paid, paid-fallback
+        // дебустит paid, пока живы свободные (иначе он как раз нужен).
+        const isPaid = provider.paid === true || provider.free === false;
+        if (isPaid && ROUTING_PREFERENCE === 'paid-first') weight *= 2.5;
+        else if (isPaid && ROUTING_PREFERENCE === 'paid-fallback') {
+          const freeUp = pool && pool.length > 0;
+          weight *= freeUp ? 0.1 : 1.0;
+        }
         // Стратегия роутинга: равномерность (round-robin / least-used) как
         // лёгкий модификатор к базовому weight — не ломает основной скоринг.
         weight *= strategyModifier(key);
@@ -1055,6 +1074,16 @@ async function handleChatCompletion(req, res, body) {
       if (statusCode === 429) {
         getHealth()[key].status = 'ratelimited';
         getHealth()[key].reason = 'лимит провайдера (429)';
+      } else if (statusCode === 401 || statusCode === 402 || statusCode === 403) {
+        // Auth/баланс — НЕ транзиентная ошибка: ключ неверен или нет кредитов.
+        // Оставлять провайдера в пуле здесь бессмысленно — он будет получать
+        // запросы и каждый раз фейлиться. Сразу убираем из активной выборки.
+        // Периодический health-check/modelManager может вернуть его, когда
+        // ключ/баланс поправят (recheckDisabledDays).
+        getHealth()[key].status = 'error';
+        getHealth()[key].reason = statusCode === 401 ? 'неверный ключ' : statusCode === 402 ? 'нет средств/баланса' : 'доступ запрещён';
+        getHealth()[key].score = Math.max(0, (getHealth()[key].score || 50) - 25);
+        logger.warn('Provider auth/balance error, excluding from routing', { key, statusCode });
       } else if (statusCode !== 404 && getHealth()[key].status === 'up') {
         // keep 'up' — it may just be a transient blip; health-check re-verifies
       } else {
@@ -1271,7 +1300,7 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({
           compress: { enabled: !!(userCfg.compress && userCfg.compress.enabled), minLen: userCfg.compress?.minLen || 60 },
           vetting: { enabled: !!(userCfg.vetting && userCfg.vetting.enabled), minAnswerLen: userCfg.vetting?.minAnswerLen || 120, complexityOnly: userCfg.vetting?.complexityOnly !== false },
-          routing: { strategy: userCfg.routing?.strategy || 'weighted' },
+          routing: { strategy: userCfg.routing?.strategy || 'weighted', preference: userCfg.routing?.preference || 'free-first' },
         }));
         return;
       }
@@ -1283,7 +1312,7 @@ const server = http.createServer(async (req, res) => {
             const patch = JSON.parse(body || '{}');
             if (typeof patch.compress === 'object') userCfg.compress = Object.assign({ enabled: false, minLen: 60 }, userCfg.compress, patch.compress);
             if (typeof patch.vetting === 'object') userCfg.vetting = Object.assign({ enabled: false, minAnswerLen: 120, complexityOnly: true }, userCfg.vetting, patch.vetting);
-            if (typeof patch.routing === 'object') userCfg.routing = Object.assign({ strategy: 'weighted' }, userCfg.routing, patch.routing);
+            if (typeof patch.routing === 'object') userCfg.routing = Object.assign({ strategy: 'weighted', preference: 'free-first' }, userCfg.routing, patch.routing);
             fs.writeFileSync(CONFIG_PATH, JSON.stringify(userCfg, null, 2));
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ ok: true }));
@@ -1435,6 +1464,7 @@ const server = http.createServer(async (req, res) => {
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
+      version: VERSION,
       total_requests: s.totalRequests, successful_requests: s.successfulRequests, failed_requests: s.failedRequests,
       provider_usage: s.providerUsage, token_usage: s.tokenUsage, errors: s.errors, uptime_seconds: Math.floor((Date.now() - s.startTime) / 1000),
       today: (() => {
@@ -1709,6 +1739,11 @@ server.listen(PORT, process.env.HOST || '127.0.0.1', () => {
   if (MODEL_MANAGER_CONFIG.enabled !== false) {
     modelManager.start();
     logger.info('ModelManager started', { intervalHours: modelManager.config.intervalHours });
+  }
+  // Автообновление на лету: git fetch + ff-pull + перезапуск, без действий юзера.
+  if (AUTO_UPDATE.enabled) {
+    autoUpdate.startAutoUpdate({ root: __dirname, log: (m) => logger.info(m) });
+    logger.info('AutoUpdate enabled', { intervalMs: AUTO_UPDATE.intervalMs });
   }
 });
 

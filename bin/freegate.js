@@ -366,12 +366,49 @@ WantedBy=default.target
 } else if (cmd === 'version' || cmd === '-v' || cmd === '--version') {
   const pkg = require(path.join(ROOT, 'package.json'));
   console.log(pkg.version);
+} else if (cmd === 'diag' || cmd === 'diagnose') {
+  const http = require('http');
+  const base = `http://127.0.0.1:${process.env.PORT || 4000}`;
+  const diag = require(path.join(ROOT, 'lib', 'diag'));
+  const g = (p) => new Promise((resolve) => {
+    http.get(base + p, (res) => {
+      let d = ''; res.on('data', (c) => d += c);
+      res.on('end', () => { try { resolve(JSON.parse(d)); } catch { resolve(null); } });
+    }).on('error', () => resolve(null));
+  });
+  (async () => {
+    const [stats, recent] = await Promise.all([g('/v1/stats'), g('/v1/recent')]);
+    if (!stats) { console.log('❌ Прокси не отвечает на ' + base + ' (запусти `npx freegate start`)'); process.exit(1); }
+    const r = diag.buildReport(stats, recent?.data || []);
+    const pct = (n, d) => d > 0 ? Math.round((n / d) * 100) + '%' : '—';
+    console.log('🔬 Freegate diag  (v' + r.version + ', uptime ' + Math.round((r.uptime || 0) / 60) + 'м)');
+    console.log('────────────────────────────────');
+    console.log('Сегодня: ' + r.today.requests + ' запросов → ' + r.today.success + ' успех, ' + r.today.failed + ' ошибок (' + (r.today.successRate ?? '—') + '%)');
+    console.log('Провайдеры: ' + r.providers.up + ' up · ' + r.providers.ratelimited + ' ratelimited · ' + r.providers.down + ' error (из ' + r.providers.total + ')');
+    console.log('Недавние: ' + r.recent.total + ' записей (' + r.recent.ok + ' ок, ' + r.recent.err + ' err, ' + r.recent.cached + ' из кэша), активно провайдеров: ' + r.recent.providersActive);
+    console.log('Контекст: ' + r.context.status + ' · компакций ' + r.context.compactCount + ' · over-window ' + r.context.overWindow + ' · апгрейдов ' + r.context.upgradedCount);
+    console.log('');
+    console.log('Ошибки по классам:');
+    for (const [cls, cnt] of Object.entries(r.classes)) {
+      console.log('  ' + (cnt > 0 ? '🟠' : '  ') + ' ' + cls.padEnd(9) + String(cnt).padStart(4) + '  ' + diag.LABELS[cls]);
+      if (cnt > 0 && diag.FIXES[cls]) console.log('     └→ ' + diag.FIXES[cls]);
+    }
+    console.log('');
+    const topErrors = Object.entries(r.errors).sort((a, b) => b[1].errors - a[1].errors).slice(0, 10);
+    if (topErrors.length) {
+      console.log('Топ провайдеров по ошибкам:');
+      for (const [k, v] of topErrors) {
+        console.log('  ' + String(v.errors).padStart(3) + '  ' + k.padEnd(34) + ' [' + v.status + '] ' + (v.reason || '').slice(0, 40));
+      }
+    }
+  })();
 } else {
   console.log('Freegate — бесплатный LLM-прокси с failover');
   console.log('Команды:');
   console.log('  npx freegate init       интерактивная настройка (quick/full режим, пароль)');
   console.log('  npx freegate start      запустить прокси');
   console.log('  npx freegate status     диагностика: провайдеры, лимиты, ошибки');
+  console.log('  npx freegate diag       отчёт: успешность, классы ошибок, смена провайдеров');
   console.log('  npx freegate test       проверить, что прокси работает');
   console.log('  npx freegate dashboard  открыть дашборд');
   console.log('  npx freegate install-service  автозапуск при старте системы');

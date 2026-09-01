@@ -460,6 +460,15 @@ test('server: window-aware upgrade wiring (structural)', () => {
   assert.ok(/measure\.est\s*=\s*measure\.sentTokens/.test(src), 'sumEst питается оценкой отправленных токенов');
 });
 
+test('server: 401/402/403 исключают провайдера из роутинга (auth/баланс, не транзиент)', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  assert.ok(/statusCode\s*===\s*401\s*\|\|\s*statusCode\s*===\s*402\s*\|\|\s*statusCode\s*===\s*403/.test(src), 'обрабатывает 401/402/403 как отдельный класс');
+  assert.ok(/getHealth\(\)\[key\]\.status\s*=\s*'error'/.test(src), 'ставит статус error (исключает из пула)');
+  assert.ok(/status\s*===\s*'up'\s*\|\|\s*getHealth\(\)\[p\.key\]\?\.status\s*===\s*'ratelimited'/.test(src), 'healthyProviders берёт только up/ratelimited → error исключён');
+});
+
 test('server: target-first пропускается при выгоревшем лимите (анти-спираль 429)', () => {
   const fs = require('fs');
   const path = require('path');
@@ -478,6 +487,19 @@ test('server: search/chat не ставят кодинг-target первым (co
   assert.ok(src.includes('targetIsCoding'), 'определяет кодинг-target');
   assert.ok(/targetMismatch\s*=\s*\(taskCategory\s*===\s*'search'\s*\|\|\s*taskCategory\s*===\s*'chat'\)\s*&&\s*targetIsCoding/.test(src), 'mismatch для search/chat + coding');
   assert.ok(/if \(!targetBurned\s*&&\s*!targetMismatch\)/.test(src), 'target-first пропускается при mismatch');
+});
+
+test('server: preferred free↔paid routing (config.routing.preference)', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  assert.ok(src.includes('ROUTING_PREFERENCE'), 'читает preference');
+  assert.ok(src.includes('config.routing.preference'), 'из config.routing');
+  assert.ok(src.includes('free-first'), 'дефолт free-first');
+  assert.ok(/isPaid\s*=\s*provider\.paid\s*===\s*true/.test(src), 'paid маркер: paid===true');
+  assert.ok(/paid-first/.test(src) && /paid-fallback/.test(src), 'оба варианта preference');
+  assert.ok(/weight\s*\*=\s*2\.5/.test(src), 'paid-first бустит вес платных');
+  assert.ok(/weight\s*\*=\s*0\.1/.test(src), 'paid-fallback дебустит платных, пока живые');
 });
 
 test('server: веб-поиск для search-задач (websearch + websearch.toContext)', () => {

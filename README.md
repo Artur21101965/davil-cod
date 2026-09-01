@@ -37,6 +37,7 @@ sees your keys or conversations.**
 |---|---|
 | 🔀 **Auto-failover** | 50+ providers in one chain. Provider down? The next one answers. |
 | 🤖 **Self-managing models** | Auto-discovers new free models, tests them, adds working ones, disables dead ones — built-in scheduler, always-fresh model base. |
+| 🎛️ **Full manual control** | You decide what runs: enable/disable any provider or model, set your own keys (free **or paid**), and pick the routing mode. No magic hidden from you. |
 | 🗂️ **Model database** | Structured passport per model (score, latency, context window, history) + sorting: best models get routing priority. |
 | 🏷️ **Model categories** | reasoning / coding / general / vision / local — the right model for the right job. |
 | 🖼️ **Two-stage vision** | Screenshot → vision model reads it → coding model answers the fix. |
@@ -219,12 +220,37 @@ PROVIDER_ZAI_APIKEY=...        # ZAI
 **Providers** — catalog in `providers.json` (18 models). Add your own:
 put it in `config.json` → `providers` (same format as `providers.json`).
 
+**Paid providers + free↔paid routing** — Freegate normally uses only free models, but
+honors your own paid keys. Mark a provider paid in `config.json` → `providers` with
+`"paid": true` (or `"free": false`) and add its key in `.env`. Then choose how it's used:
+
+```json
+{ "routing": { "preference": "free-first" } }
+```
+
+- `free-first` (default) — free base in priority, your paid keys only as backup.
+- `paid-first` — your paid keys take priority, free as fallback.
+- `paid-fallback` — free by default; paid are touched only when free fail.
+
+> Example: put your DeepSeek or any OpenAI-compatible paid key under free gate,
+> and switch to `paid-fallback` so expensive calls only kick in when free providers are
+> down, not for every request.
+
+**Auto-update on the fly** — Freegate can rebase itself without you touching a chat:
+```json
+{ "autoUpdate": { "enabled": true, "intervalHours": 12 } }
+```
+Every interval it does `git fetch` + fast-forward `pull` on its own folder, then restarts
+the launchd service. Safe: it skips if the working tree is dirty (your local edits win),
+and never touches `.env`/`config.json` (gitignored).
+
 ## CLI commands
 
 ```bash
 npx freegate init              # create config
 npx freegate init -i           # interactive wizard (keys, password)
 npx freegate doctor            # diagnostics: keys, models, "what to check"
+npx freegate diag              # report: success rate, error classes, provider switches
 npx freegate start             # start proxy
 npx freegate status            # diagnostics: providers, limits, errors
 npx freegate test              # verify it works
