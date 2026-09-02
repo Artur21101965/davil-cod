@@ -456,6 +456,8 @@ test('server: window-aware upgrade wiring (structural)', () => {
   assert.ok(src.includes('measure.upgraded = 1'), 'мера апгрейда ставится');
   assert.ok(/&&\s*!\s*windowUpgraded\s*\)\s*\{[\s\S]*prepareMessages/.test(src), 'prepareMessages пропускается при апгрейде');
   assert.ok(src.includes('if (requestTokens > MIN_WINDOW || windowUpgraded)'), 'window-фильтр без гейта при апгрейде');
+  assert.ok(src.includes('WINDOW_SAFETY'), 'запас окна против заниженной оценки');
+  assert.ok(/win\s*>=\s*requestTokens\s*\*\s*WINDOW_SAFETY/.test(src), 'окно требует запас');
   assert.ok(src.includes('!windowUpgraded && MODEL_MAP[requestedModel]'), 'target-first пропускается при апгрейде');
   assert.ok(/measure\.est\s*=\s*measure\.sentTokens/.test(src), 'sumEst питается оценкой отправленных токенов');
 });

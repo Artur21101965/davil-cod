@@ -619,13 +619,17 @@ async function handleChatCompletion(req, res, body) {
   // requests keep the full fast pool.
   const requestTokens = estimateTokens(body.messages);
   const MIN_WINDOW = 50000; // below this we don't filter (typical requests)
+  // Запас 2.0×: estimateTokens на диалогах с инструментами/кодом ЗАНИЖАЕТ реальный
+  // размер (~в 2-3 раза). Запас отсекает малые окна (groq 131k, or-lfm 65k) от больших
+  // запросов, но не убивает пул (большие окна: dots-3 512k, minimax 1M остаются).
+  const WINDOW_SAFETY = 2.0;
   let windowPool = healthy2;
   let upgradeNoCapable = false; // апгрейд, но ни один здоровый провайдер не держит запрос
   if (requestTokens > MIN_WINDOW || windowUpgraded) {
     const capable = healthy2.filter(([_, p]) => {
       const win = p.context_window || 0;
       // Unknown/0 window providers are kept (heuristic) — better to try than drop.
-      return win === 0 || win >= requestTokens;
+      return win === 0 || win >= requestTokens * WINDOW_SAFETY;
     });
     if (capable.length > 0) {
       windowPool = capable;
