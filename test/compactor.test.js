@@ -16,12 +16,12 @@ describe('compactor.estimateTokens', () => {
     assert.equal(compactor.estimateTokens('string'), 0);
   });
 
-  it('estimates conservatively (chars/1.0)', () => {
+  it('estimates conservatively (chars/1.5)', () => {
     loadFresh();
     const msgs = [{ role: 'user', content: 'hello world' }]; // 11 chars
     const est = compactor.estimateTokens(msgs);
     assert.equal(typeof est, 'number');
-    assert.ok(est >= 9 && est <= 14, 'expected ~11 tokens (11 chars / 1.0), got ' + est);
+    assert.ok(est >= 6 && est <= 9, 'expected ~8 tokens (11 chars / 1.5), got ' + est);
   });
 });
 
@@ -178,8 +178,8 @@ describe('compactor.compactionThresholdFor', () => {
   });
 });
 
-// NOTE on test sizes: estimateTokens = chars / CHARS_PER_TOKEN(1.0). To hit
-// est ≈ N tokens use big = 'w'.repeat(N * 1.0) chars. compactOld reserves
+// NOTE on test sizes: estimateTokens = chars / CHARS_PER_TOKEN(1.5). To hit
+// est ≈ N tokens use big = 'w'.repeat(N * 1.5) chars. compactOld reserves
 // KEEP_RECENT_TOKENS(30000) for the recent tail and only summarizes the OLD
 // prefix — so a request must exceed 30000 est to have any compactable head.
 // window 33000 → threshold 16500: est 32006 (> 16500, > 30000) compacts.
@@ -188,7 +188,7 @@ describe('compactor.compactionThresholdFor', () => {
 // so only the contextWindow option can trigger compaction.
 const EST_TOKENS = 32000;
 function bigMessage(estTokens) {
-  return { role: 'user', content: 'w'.repeat(Math.ceil(estTokens * 1.0)) };
+  return { role: 'user', content: 'w'.repeat(Math.ceil(estTokens * 1.5)) };
 }
 
 describe('compactor.prepareMessages with contextWindow option', () => {

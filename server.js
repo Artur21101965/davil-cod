@@ -162,6 +162,8 @@ const MODEL_MANAGER_CONFIG = Object.assign(
 );
 const autoUpdate = require('./lib/autoupdate');
 const AUTO_UPDATE = (config.autoUpdate && typeof config.autoUpdate === 'object') ? config.autoUpdate : {};
+const diagMonitor = require('./lib/diagmonitor');
+const DIAG_MONITOR = (config.diagMonitor && typeof config.diagMonitor === 'object') ? config.diagMonitor : { enabled: true, intervalMs: 30 * 60 * 1000 };
 const modelManager = new ModelManager({
   dbPath: path.join(__dirname, 'models-db.json'),
   catalogPath: path.join(__dirname, 'providers.json'),
@@ -1756,10 +1758,16 @@ server.listen(PORT, process.env.HOST || '127.0.0.1', () => {
     autoUpdate.startAutoUpdate({ root: __dirname, log: (m) => logger.info(m) });
     logger.info('AutoUpdate enabled', { intervalMs: AUTO_UPDATE.intervalMs });
   }
+  // Мониторинг метрик: снапшот каждые 30 мин → можно сравнить «до/после» фиксов.
+  if (DIAG_MONITOR.enabled) {
+    diagMonitor.startMonitor(DIAG_MONITOR.intervalMs);
+    logger.info('DiagMonitor started', { intervalMs: DIAG_MONITOR.intervalMs });
+  }
 });
 
 const _shutdown = () => {
   if (memStore) { memStore.stopTimer(); memStore.save(); }
+  diagMonitor.stopMonitor();
   require('./lib/health').saveState();
   cache.persist();
   try { modelManager.stop(); } catch {}

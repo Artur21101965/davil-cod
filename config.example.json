@@ -40,6 +40,10 @@
     "enabled": false,
     "intervalHours": 12
   },
+  "diagMonitor": {
+    "enabled": true,
+    "intervalMs": 1800000
+  },
   "providers": {
     "or-nemotron-550b": {
       "endpoint": "https://openrouter.ai/api/v1/chat/completions",
