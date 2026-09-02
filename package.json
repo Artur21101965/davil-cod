@@ -8,7 +8,9 @@
   },
   "scripts": {
     "start": "node server.js",
-    "test": "node --test --test-concurrency=1 test/proxy.test.js test/clean.test.js"
+    "test": "node --test --test-concurrency=1 test/proxy.test.js test/clean.test.js",
+    "set-model-version": "node scripts/set-model-version.js",
+    "release": "npm test && npm run set-model-version && npm publish"
   },
   "engines": {
     "node": ">=18"
