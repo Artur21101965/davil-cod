@@ -22,3 +22,4 @@ cache.json
 
 # Git worktrees
 .worktrees/
+diag_history.json
