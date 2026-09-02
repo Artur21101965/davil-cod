@@ -646,7 +646,7 @@
   "gemini-gemma-4-26b-a4b-it": {
     "endpoint": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
     "model": "gemma-4-26b-a4b-it",
-    "priority": 5,
+    "priority": 6,
     "dailyLimit": 1500,
     "keyHint": "gemini → Keys (автодобавлено, general)",
     "envVar": "PROVIDER_GEMINI_APIKEY",
@@ -676,7 +676,7 @@
   "gemini-gemini-3-1-flash-lite-preview": {
     "endpoint": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
     "model": "gemini-3.1-flash-lite-preview",
-    "priority": 6,
+    "priority": 3,
     "dailyLimit": 1500,
     "keyHint": "gemini → Keys (автодобавлено, general)",
     "envVar": "PROVIDER_GEMINI_APIKEY",
@@ -686,7 +686,7 @@
   "gemini-gemini-3-5-flash": {
     "endpoint": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
     "model": "gemini-3.5-flash",
-    "priority": 3,
+    "priority": 7,
     "dailyLimit": 1500,
     "keyHint": "gemini → Keys (автодобавлено, general)",
     "envVar": "PROVIDER_GEMINI_APIKEY",
@@ -706,7 +706,7 @@
   "gemini-gemini-3-1-flash-lite": {
     "endpoint": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
     "model": "gemini-3.1-flash-lite",
-    "priority": 7,
+    "priority": 5,
     "dailyLimit": 1500,
     "keyHint": "gemini → Keys (автодобавлено, general)",
     "envVar": "PROVIDER_GEMINI_APIKEY",
