@@ -559,8 +559,11 @@ async function handleChatCompletion(req, res, body) {
     }
   }
 
-  // Check cache (works for both streaming and non-streaming)
-  const cached = cache.get(effectiveModel, body.messages, body.temperature);
+  // Tool-запросы (агент вызывает инструмент) НЕ кэшируем: ответ зависит от tool_calls,
+  // а кэш по messages может отдать текстовый ответ вместо инструмента — агент
+  // «останавливается», не получив tool. Идём всегда к провайдеру.
+  const hasTools = !!(body.tools || body.tool_choice);
+  const cached = hasTools ? null : cache.get(effectiveModel, body.messages, body.temperature, body.tools || body.tool_choice);
   if (cached) {
     logger.request({ model: requestedModel, provider: 'cache', status: 200, cached: true });
     recordRecent({ model: requestedModel, provider: 'cache', status: 200, latency: 0, cached: true });
@@ -571,7 +574,7 @@ async function handleChatCompletion(req, res, body) {
   }
 
   // Semantic cache: same intent, rephrased wording → replay without a new LLM call.
-  if (SEMCACHE_CONFIG.enabled) {
+  if (SEMCACHE_CONFIG.enabled && !hasTools) {
     const semantic = cache.getSemantic(effectiveModel, body.messages, body.temperature, SEMCACHE_CONFIG.minSimilarity);
     if (semantic) {
       logger.request({ model: requestedModel, provider: 'semcache', status: 200, cached: true });
@@ -907,7 +910,7 @@ async function handleChatCompletion(req, res, body) {
                 model: provider.model,
                 choices: [{ index: 0, message: { role: 'assistant', content: full }, finish_reason: 'stop' }],
                 usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
-              }, key);
+              }, key, body.tools || body.tool_choice);
             }
             commit(200);
             res.end();
@@ -1017,7 +1020,7 @@ async function handleChatCompletion(req, res, body) {
               model: provider.model,
               choices: [{ index: 0, message: { role: 'assistant', content: full }, finish_reason: 'stop' }],
               usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
-            }, key);
+            }, key, body.tools || body.tool_choice);
           }
           commit(200);
           res.end();
@@ -1066,7 +1069,7 @@ async function handleChatCompletion(req, res, body) {
           }
         }
         commit(200);
-        cache.set(effectiveModel, body.messages, body.temperature, result.data, key);
+        cache.set(effectiveModel, body.messages, body.temperature, result.data, key, body.tools || body.tool_choice);
         recordTokens(key, result.usage);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(result.data));
@@ -1163,7 +1166,7 @@ if (isTooShort(result.data, lastUserText(body.messages))) {
           measure.real = (result.data.usage && result.data.usage.prompt_tokens) ? result.data.usage.prompt_tokens : measure.sentTokens || 0;
           measure.win = PROVIDERS[key]?.context_window || 0;
           commit(200);
-          cache.set(effectiveModel, body.messages, body.temperature, result.data, key);
+          cache.set(effectiveModel, body.messages, body.temperature, result.data, key, body.tools || body.tool_choice);
           recordTokens(key, result.usage);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(result.data));
@@ -1221,7 +1224,7 @@ if (isTooShort(result.data, lastUserText(body.messages))) {
                 model: provider.model,
                 choices: [{ index: 0, message: { role: 'assistant', content: full }, finish_reason: 'stop' }],
                 usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
-              }, key);
+              }, key, body.tools || body.tool_choice);
             }
             commit(200);
             res.end();

@@ -101,6 +101,13 @@ test('clean: isTooShort counts reasoning as content', () => {
   assert.strictEqual(isTooShort({ choices: [{ message: { role: 'assistant', content: '', reasoning: 'ab' } }] }), true);
 });
 
+test('clean: isTooShort NOT short for tool_calls (agent инструмент — не мусор)', () => {
+  const { isTooShort, hasContent } = require('../lib/clean');
+  const toolRes = { choices: [{ message: { role: 'assistant', content: '', tool_calls: [{ id: 'c1', type: 'function', function: { name: 'edit_file', arguments: '{}' } }] } }] };
+  assert.strictEqual(isTooShort(toolRes, 'исправь foo на bar'), false, 'tool_calls-ответ не должен отбрасываться как пустой');
+  assert.strictEqual(hasContent(toolRes), true);
+});
+
 test('clean: isTooShort true for missing choices', () => {
   const { isTooShort } = require('../lib/clean');
   assert.strictEqual(isTooShort({}), true);
