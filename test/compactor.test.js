@@ -180,9 +180,9 @@ describe('compactor.compactionThresholdFor', () => {
 
 // NOTE on test sizes: estimateTokens = chars / CHARS_PER_TOKEN(2.0). To hit
 // est ≈ N tokens use big = 'w'.repeat(N * 3.0) chars. compactOld reserves
-// KEEP_RECENT_TOKENS(30000) for the recent tail and only summarizes the OLD
-// prefix — so a request must exceed 30000 est to have any compactable head.
-// window 33000 → threshold 16500: est 32006 (> 16500, > 30000) compacts.
+// KEEP_RECENT_TOKENS(12000) for the recent tail and only summarizes the OLD
+// prefix — so a request must exceed 12000 est to have any compactable head.
+// window 33000 → threshold 16500: est 32006 (> 16500, > 12000) compacts.
 // window 1048576 → threshold 100000; window 128000 → threshold 64000:
 // est 32006 is below both → unchanged. All sizes are also below global 60000,
 // so only the contextWindow option can trigger compaction.
