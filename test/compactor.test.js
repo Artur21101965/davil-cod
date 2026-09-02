@@ -163,18 +163,18 @@ describe('compactor.compactionThresholdFor', () => {
     assert.equal(compactor.compactionThresholdFor(null), compactor.COMPACT_THRESHOLD);
   });
 
-  it('caps defined windows at min(win*0.5, 100000)', () => {
+  it('caps defined windows at min(win*0.5, 200000)', () => {
     loadFresh();
     assert.equal(compactor.compactionThresholdFor(33000), Math.floor(33000 * 0.5)); // 16500
     assert.equal(compactor.compactionThresholdFor(65536), Math.floor(65536 * 0.5)); // 32768
     assert.equal(compactor.compactionThresholdFor(128000), Math.floor(128000 * 0.5)); // 64000
-    assert.equal(compactor.compactionThresholdFor(512000), 100000);
-    assert.equal(compactor.compactionThresholdFor(1048576), 100000);
+    assert.equal(compactor.compactionThresholdFor(512000), 200000);
+    assert.equal(compactor.compactionThresholdFor(1048576), 200000);
   });
 
-  it('defined-window threshold never exceeds 100000', () => {
+  it('defined-window threshold never exceeds 200000', () => {
     loadFresh();
-    assert.ok(compactor.compactionThresholdFor(1000000) <= 100000);
+    assert.ok(compactor.compactionThresholdFor(1000000) <= 200000);
   });
 });
 
